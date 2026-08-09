@@ -9,14 +9,14 @@ import 'key_manager.dart';
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Runtime Guard
-/// Layer 5 of the 8-layer security architecture
+/// Real-time application monitoring and active runtime memory protection.
 ///
-/// Protections:
-///   1. Anti-debugging (ptrace attach detection, debugger flag)
-///   2. Frida / hooking framework detection (/proc/maps scanning)
-///   3. Screenshot prevention (FLAG_SECURE on sensitive screens)
-///   4. Memory zeroing utilities
-///   5. Secure zone wrapper for critical operations
+/// Active Safeguards:
+///   1. Anti-debugging and process inspection prevention
+///   2. Dynamic code injection & hooking framework detection
+///   3. Screen privacy enforcement on sensitive safety views
+///   4. In-memory data sanitization utilities
+///   5. Protected execution zones for high-security tasks
 /// ══════════════════════════════════════════════════════════════════════════
 class RuntimeGuard {
   RuntimeGuard._();

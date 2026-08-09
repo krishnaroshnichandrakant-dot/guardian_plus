@@ -31,8 +31,8 @@ class ChildDeviceData {
   bool isPaused;
 }
 
-/// Parent Dashboard — Module 1B
-/// Shows child device cards, risk alerts, screen time summary, and device management.
+/// Parent Dashboard
+/// Overview of linked family devices, risk alerts, screen time insights, and device management tools.
 class ParentDashboard extends StatefulWidget {
   const ParentDashboard({super.key});
 

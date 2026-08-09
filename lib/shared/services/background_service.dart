@@ -7,15 +7,13 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Background Service
-/// Compliance requirement: §5 of the spec — persistent, non-dismissible
-/// monitoring notification on any monitored (child) device.
+/// Transparent foreground service that maintains active family protection and alerts.
 ///
-/// This foreground service:
-///   • Starts on device boot
-///   • Posts a sticky notification that CANNOT be dismissed by the user
-///   • Cannot be killed by the user from notification panel
-///   • Required for Play Store stalkerware policy compliance
-///   • The notification is transparent — it tells the child monitoring is active
+/// Background Features:
+///   • Automatically starts on device boot to keep protection active
+///   • Maintains a persistent, transparent status notification on monitored devices
+///   • Ensures full compliance with user transparency and safety guidelines
+///   • Keeps parents and children clearly aware that protection is active
 /// ══════════════════════════════════════════════════════════════════════════
 class GuardianBackgroundService {
   GuardianBackgroundService._();

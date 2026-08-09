@@ -16,8 +16,8 @@ class ContactItem {
   String relation;
 }
 
-/// Women's Safety Dashboard — Module 1C
-/// Personal safety tools, emergency SOS, distress siren, safety walk companion, and editable trusted contacts.
+/// Personal Safety Dashboard
+/// Rapid SOS emergency triggers, active location sharing, siren alerts, and personal safety tools.
 class WomensDashboard extends StatefulWidget {
   const WomensDashboard({super.key});
 

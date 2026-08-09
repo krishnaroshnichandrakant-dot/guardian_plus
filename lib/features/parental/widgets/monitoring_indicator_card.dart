@@ -4,8 +4,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
 
-/// Transparent, non-dismissible monitoring indicator widget for child devices.
-/// Mandatory requirement under Google Play Safety / Stalkerware policies and §5 of spec.
+/// Transparent monitoring indicator widget for child devices.
+/// Prominently displays active protection status to maintain openness and trust.
 class ChildMonitoringIndicatorCard extends StatelessWidget {
   const ChildMonitoringIndicatorCard({
     super.key,

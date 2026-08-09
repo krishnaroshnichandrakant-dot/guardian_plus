@@ -168,8 +168,8 @@ class RiskAlertDetailScreen extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Per privacy guidelines (§4), raw message text is never sent or displayed. '
-              'Only category risk indicators and matched signals are reported.',
+              'To protect personal privacy, private message content is never uploaded or displayed. '
+              'Only high-level risk categories and safety indicators are analyzed.',
               style: TextStyle(fontSize: 11, color: AppColors.cyberBlue, height: 1.4),
             ),
           ),

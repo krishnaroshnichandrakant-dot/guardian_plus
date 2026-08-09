@@ -6,15 +6,15 @@ import 'package:pointycastle/export.dart' as pc;
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Cryptography Service
-/// Layer 1 of the 8-layer security architecture
+/// Core cryptographic engine for data protection, encryption, and secure key derivation.
 ///
-/// Algorithms:
-///   • AES-256-GCM        — local data encryption at rest
-///   • ChaCha20-Poly1305  — alert payload encryption (transit)
-///   • X25519 (ECDH)      — key exchange / Perfect Forward Secrecy
-///   • Ed25519            — digital signatures on all alert payloads
-///   • Argon2id           — PIN → key derivation (memory-hard)
-///   • HKDF-SHA-256       — sub-key derivation (key separation)
+/// Security Features:
+///   • AES-256-GCM        — End-to-end data encryption at rest
+///   • ChaCha20-Poly1305  — Secure alert payload encryption in transit
+///   • X25519 (ECDH)      — Secure key exchange with Perfect Forward Secrecy
+///   • Ed25519            — Cryptographic digital signatures for verified alerts
+///   • Argon2id           — Memory-hard key derivation from user PINs
+///   • HKDF-SHA-256       — Sub-key derivation for cryptographic separation
 /// ══════════════════════════════════════════════════════════════════════════
 class CryptoService {
   CryptoService._();

@@ -12,14 +12,14 @@ import 'key_manager.dart';
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Integrity Guard
-/// Layer 4 of the 8-layer security architecture
+/// Application tamper protection and environment trust validation.
 ///
-/// Checks:
-///   1. Root / Magisk / Superuser detection
-///   2. APK signature self-verification
-///   3. Debuggable flag (release builds only)
-///   4. Test-keys build detection
-///   5. Emulator / non-genuine device heuristics
+/// Verification Safeguards:
+///   1. Rooted device and superuser detection
+///   2. Application package signature self-verification
+///   3. Release build debugging state validation
+///   4. Custom firmware and test-keys build checks
+///   5. Emulator and non-genuine environment detection
 /// ══════════════════════════════════════════════════════════════════════════
 class IntegrityGuard {
   IntegrityGuard._();

@@ -9,14 +9,14 @@ import 'audit_logger.dart';
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Secure HTTP Client
-/// Layer 3 of the 8-layer security architecture
+/// Hardened networking client for encrypted, tamper-resistant API communications.
 ///
-/// Enforces:
-///   • TLS 1.3 only (disables TLS 1.0, 1.1, 1.2)
-///   • Certificate pinning on all Guardian Plus endpoints
-///   • No auth header caching
-///   • Strict 5-second timeout
-///   • No redirects on sensitive endpoints
+/// Network Protections:
+///   • Modern TLS encryption only
+///   • Strict SSL Certificate Pinning for verified server connections
+///   • Secure header management without sensitive caching
+///   • Fast request timeouts to prevent connection hangs
+///   • Disallowed automatic redirects on sensitive endpoints
 /// ══════════════════════════════════════════════════════════════════════════
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

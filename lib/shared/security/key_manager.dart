@@ -9,18 +9,17 @@ import 'audit_logger.dart';
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Key Manager
-/// Layer 2 of the 8-layer security architecture
+/// Hardware-backed key management and secure credential lifecycle handling.
 ///
 /// Key Hierarchy:
-///   Android Keystore (hardware TEE / StrongBox)
+///   Hardware Security Module (Android Keystore / iOS Secure Enclave)
 ///   └── Master Identity Key (Ed25519)
 ///       ├── Storage Encryption Key  (HKDF-derived, AES-256)
-///       ├── Alert Signing Key       (HKDF-derived, Ed25519, rotates every 7d)
-///       └── Session Key Pool        (ephemeral X25519, per-session)
+///       ├── Alert Signing Key       (HKDF-derived, Ed25519, auto-rotating)
+///       └── Session Key Pool        (Ephemeral X25519 per session)
 ///
-/// All sensitive key material is stored in flutter_secure_storage which
-/// uses Android Keystore on Android and iOS Secure Enclave on iOS.
-/// Keys bound to biometric auth for sensitive operations.
+/// All sensitive key material is stored securely in hardware-backed storage
+/// and protected by optional biometric authentication for sensitive actions.
 /// ══════════════════════════════════════════════════════════════════════════
 class KeyManager {
   KeyManager._();

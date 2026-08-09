@@ -8,11 +8,12 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 /// ══════════════════════════════════════════════════════════════════════════
 /// Guardian Plus Security Audit Logger
-/// Layer 8 of the 8-layer security architecture
+/// Secure, tamper-evident log manager for local safety events and security logs.
 ///
-/// Append-only, HMAC-SHA-256 authenticated local audit log.
-/// Every entry is signed — any tampered entry is detectable.
-/// Log is local-only, never synced to cloud.
+/// Features:
+///   • Append-only storage authenticated with HMAC-SHA-256 signatures
+///   • Cryptographically signed log entries to detect any unauthorized modification
+///   • Strictly local storage to protect user privacy (never uploaded)
 /// ══════════════════════════════════════════════════════════════════════════
 class AuditLogger {
   AuditLogger._();
