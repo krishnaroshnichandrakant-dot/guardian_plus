@@ -1,0 +1,119 @@
+name: guardian_plus
+description: "Guardian Plus — AI-powered family safety & cybersecurity app."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── State Management ──────────────────────────────────────────────
+  flutter_riverpod: ^2.5.1
+
+  # ── Navigation ────────────────────────────────────────────────────
+  go_router: ^14.2.0
+
+  # ── Firebase ──────────────────────────────────────────────────────
+  firebase_core: ^3.3.0
+  firebase_auth: ^5.1.4
+  cloud_firestore: ^5.2.1
+  firebase_messaging: ^15.0.4
+  firebase_storage: ^12.1.3
+
+  # ── ╔══════════════════════════════════════════╗ ──────────────────
+  # ── ║     SECURITY LAYER — CRYPTOGRAPHY       ║ ──────────────────
+  # ── ╚══════════════════════════════════════════╝ ──────────────────
+  cryptography: ^2.7.0           # AES-256-GCM, ChaCha20-Poly1305, X25519, Ed25519, HKDF
+  cryptography_flutter: ^2.3.4   # Native acceleration for crypto ops
+  flutter_secure_storage: ^9.2.2 # Android Keystore / iOS Secure Enclave backed storage
+  local_auth: ^2.3.0             # Biometric auth (fingerprint, face ID)
+  pointycastle: ^3.9.1           # Argon2id password hashing
+
+  # ── ╔══════════════════════════════════════════╗ ──────────────────
+  # ── ║   SECURITY LAYER — INTEGRITY & RUNTIME  ║ ──────────────────
+  # ── ╚══════════════════════════════════════════╝ ──────────────────
+  flutter_jailbreak_detection: ^1.10.0  # Root/Magisk/su/test-keys detection
+  package_info_plus: ^8.0.0            # APK signature verification metadata
+  device_info_plus: ^10.1.0            # Device attestation info
+  # play_integrity: ^1.0.0             # Google Play Integrity API — add post Firebase setup
+
+  # ── ╔══════════════════════════════════════════╗ ──────────────────
+  # ── ║   SECURITY LAYER — TRANSPORT            ║ ──────────────────
+  # ── ╚══════════════════════════════════════════╝ ──────────────────
+  http: ^1.2.1                   # HTTP client (hardened via interceptors)
+  dio: ^5.4.3                    # Advanced HTTP with interceptor support for cert pinning
+
+  # ── Local Storage ─────────────────────────────────────────────────
+  hive_flutter: ^1.1.0           # Encrypted local key-value store
+  hive: ^2.2.3
+
+  # ── Background Services ───────────────────────────────────────────
+  flutter_background_service: ^5.0.5   # Android foreground service (persistent notification)
+  flutter_local_notifications: ^17.2.3 # Local notification management
+  workmanager: ^0.5.2                   # Background task scheduler
+
+  # ── On-device ML ──────────────────────────────────────────────────
+  google_mlkit_text_recognition: ^0.13.0
+  google_mlkit_smart_reply: ^0.10.0
+  tflite_flutter: ^0.11.0        # TFLite for URL classifier, NSFW classifier
+
+  # ── Sensors & Hardware ────────────────────────────────────────────
+  sensors_plus: ^5.0.1           # Accelerometer (shake-to-SOS)
+  geolocator: ^12.0.0            # GPS for SOS + location sharing
+  mobile_scanner: ^5.2.3         # QR code scanning
+  permission_handler: ^11.3.1    # Runtime permission management
+  device_apps: ^2.2.0            # Installed apps + package metadata
+
+  # ── Networking & Safety ───────────────────────────────────────────
+  wifi_info_flutter: ^2.0.2      # Wi-Fi SSID/BSSID metadata
+  connectivity_plus: ^6.0.3      # Network state monitoring
+  url_launcher: ^6.3.0           # Safe URL opening (always go through scanner first)
+
+  # ── UI & Design ───────────────────────────────────────────────────
+  google_fonts: ^6.2.1           # Inter + Space Grotesk
+  flutter_animate: ^4.5.0        # Micro-animations
+  fl_chart: ^0.68.0              # Screen time / usage charts
+  glassmorphism: ^3.0.0          # Glassmorphism card effect
+  lottie: ^3.1.2                 # Lottie animation (SOS, loading, success)
+  cached_network_image: ^3.3.1   # Cached avatar/image loading
+  shimmer: ^3.0.0                # Skeleton loading state
+
+  # ── Maps ──────────────────────────────────────────────────────────
+  google_maps_flutter: ^2.9.0    # Safe route map
+  flutter_polyline_points: ^2.1.0
+
+  # ── Utilities ─────────────────────────────────────────────────────
+  uuid: ^4.4.0                   # Nonce / session ID generation
+  rxdart: ^0.27.7                # Reactive streams for alert pipeline
+  freezed_annotation: ^2.4.4     # Immutable data classes
+  json_annotation: ^4.9.0
+  intl: ^0.19.0                  # Date/time formatting
+  logger: ^2.3.0                 # Debug logging (disabled in release)
+  equatable: ^2.0.5              # Value equality
+
+  # ── Calling ───────────────────────────────────────────────────────
+  flutter_phone_direct_caller: ^2.1.1  # Fake call UI trigger
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  freezed: ^2.4.7
+  json_serializable: ^6.8.0
+  mockito: ^5.4.4
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/models/
+    - assets/fonts/
+    - assets/icons/
+    - assets/audio/
+    - assets/lottie/

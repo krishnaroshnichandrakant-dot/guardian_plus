@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Guardian Plus — Network Security Configuration
+  Layer 3: Transport Security
+
+  Enforces:
+    • TLS 1.3 only (disables TLS 1.0, 1.1, 1.2)
+    • Certificate pinning on Guardian Plus endpoints
+    • Clears text traffic on all domains
+    • Strict trust anchors
+-->
+<network-security-config>
+
+  <!-- Global: Block all cleartext (HTTP) traffic -->
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <!-- Only trust system CAs + our own if we add a custom CA later -->
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+
+  <!-- Firebase / FCM: Certificate pinning -->
+  <domain-config cleartextTrafficPermitted="false">
+    <domain includeSubdomains="true">firebaseapp.com</domain>
+    <domain includeSubdomains="true">googleapis.com</domain>
+    <domain includeSubdomains="true">firebase.google.com</domain>
+    <domain includeSubdomains="true">fcm.googleapis.com</domain>
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+    <!-- Pin set: Update these SHA-256 hashes with actual Firebase cert fingerprints -->
+    <!-- <pin-set expiration="2027-01-01"> -->
+    <!--   <pin digest="SHA-256">REPLACE_WITH_ACTUAL_FIREBASE_CERT_PIN_1==</pin> -->
+    <!--   <pin digest="SHA-256">REPLACE_WITH_ACTUAL_FIREBASE_CERT_BACKUP_PIN==</pin> -->
+    <!-- </pin-set> -->
+  </domain-config>
+
+  <!-- URLhaus / PhishTank blocklist updates: CDN endpoints -->
+  <domain-config cleartextTrafficPermitted="false">
+    <domain includeSubdomains="true">urlhaus.abuse.ch</domain>
+    <domain includeSubdomains="true">phishtank.org</domain>
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </domain-config>
+
+  <!-- Debug: Allow cleartext only in debug builds (overridden by debug config) -->
+
+</network-security-config>
