@@ -1,89 +1,98 @@
 import 'package:flutter/material.dart';
 
-/// Guardian Plus fresh light color palette
-/// Primary: Indigo / Sky Blue (#4F46E5 & #0284C7) — clarity, security, modern aesthetic
-/// Secondary: Emerald Green (#10B981) — safety & trust
-/// Clean light surfaces with soft borders and crisp typography
+/// Guardian Plus — Clean White Pro
+/// Inspired by Apple's design language: pure whites, deep charcoal text,
+/// a single bold blue accent, generous whitespace and clean borders.
 class AppColors {
   AppColors._();
 
-  // ── Brand Primary ─────────────────────────────────────────────────
-  static const cyberBlue = Color(0xFF4F46E5);
-  static const cyberBlueDark = Color(0xFF3730A3);
-  static const cyberBlueLight = Color(0xFF6366F1);
-  static const cyberBlueGlow = Color(0x1F4F46E5);
+  // ── Primary Accent (Apple Blue) ───────────────────────────────────
+  static const cyberBlue        = Color(0xFF0A84FF);   // iOS 17 system blue
+  static const cyberBlueDark    = Color(0xFF0071E3);   // Apple.com button blue
+  static const cyberBlueLight   = Color(0xFF40A9FF);   // hover / lighter
+  static const cyberBlueGlow    = Color(0x220A84FF);   // subtle glow
 
-  // ── Brand Secondary ───────────────────────────────────────────────
-  static const emeraldGreen = Color(0xFF10B981);
-  static const emeraldGreenDark = Color(0xFF059669);
-  static const emeraldGreenLight = Color(0xFF34D399);
-  static const emeraldGreenGlow = Color(0x1F10B981);
+  // ── Secondary Accent (Teal — for Women's Safety, Safe zones) ──────
+  static const emeraldGreen     = Color(0xFF30D158);   // iOS 17 system green
+  static const emeraldGreenDark = Color(0xFF25A244);
+  static const emeraldGreenLight = Color(0xFF57E07A);
+  static const emeraldGreenGlow = Color(0x2230D158);
 
-  // ── Accent ────────────────────────────────────────────────────────
-  static const neonPurple = Color(0xFF8B5CF6);
-  static const neonPurpleGlow = Color(0x1F8B5CF6);
-  static const softCoral = Color(0xFFF43F5E);
-  static const amber = Color(0xFFF59E0B);
+  // ── Tertiary (Purple — Parent Hub only) ───────────────────────────
+  static const neonPurple       = Color(0xFF6E56CF);   // warm indigo — not neon
+  static const neonPurpleGlow   = Color(0x226E56CF);
 
-  // ── Light Backgrounds ─────────────────────────────────────────────
-  /// Main scaffold background: fresh soft light gray
-  static const background = Color(0xFFF8FAFC);
-  /// Card / elevated surface: pure white
-  static const surface = Color(0xFFFFFFFF);
-  /// Cards on surface
-  static const cardBackground = Color(0xFFFFFFFF);
-  /// Second elevation level
-  static const surfaceElevated = Color(0xFFF1F5F9);
-  /// Highest elevation
-  static const surfaceHighest = Color(0xFFE2E8F0);
-  /// Navigation bar background
+  // ── Danger (Women's Safety / Errors) ──────────────────────────────
+  static const softCoral        = Color(0xFFFF453A);   // iOS system red
+  static const amber            = Color(0xFFFFD60A);   // iOS system yellow
+
+  // ── Pure White Backgrounds ────────────────────────────────────────
+  /// Scaffold — absolute white
+  static const background       = Color(0xFFFFFFFF);
+  /// Cards — white
+  static const surface          = Color(0xFFFFFFFF);
+  static const cardBackground   = Color(0xFFFFFFFF);
+  /// Second level — almost invisible light gray (like iOS grouped cells)
+  static const surfaceElevated  = Color(0xFFF2F2F7);   // iOS systemGroupedBackground
+  /// Highest — divider-level gray
+  static const surfaceHighest   = Color(0xFFE5E5EA);   // iOS separator
   static const navBarBackground = Color(0xFFFFFFFF);
 
-  // ── Light Borders & Dividers ──────────────────────────────────────
-  static const outline = Color(0xFFE2E8F0);
-  static const outlineVariant = Color(0xFFCBD5E1);
+  // ── Borders (razor thin, like Apple) ─────────────────────────────
+  static const outline          = Color(0xFFE5E5EA);   // iOS separator color
+  static const outlineVariant   = Color(0xFFD1D1D6);   // slightly darker
 
-  // ── Typography Colors ──────────────────────────────────────────────
-  static const onSurface = Color(0xFF0F172A);
-  static const onSurfaceMuted = Color(0xFF64748B);
-  static const onSurfaceSubtle = Color(0xFF94A3B8);
-  static const onPrimary = Color(0xFFFFFFFF);
+  // ── Typography (Charcoal — Apple style) ──────────────────────────
+  static const onSurface        = Color(0xFF1C1C1E);   // iOS label color
+  static const onSurfaceMuted   = Color(0xFF6C6C70);   // iOS secondaryLabel
+  static const onSurfaceSubtle  = Color(0xFFAEAEB2);   // iOS tertiaryLabel
+  static const onPrimary        = Color(0xFFFFFFFF);
 
-  // ── Semantic Colors ───────────────────────────────────────────────
-  static const errorRed = Color(0xFFEF4444);
-  static const errorRedGlow = Color(0x1FEF4444);
-  static const warningOrange = Color(0xFFF97316);
-  static const warningAmber = Color(0xFFF59E0B);
-  static const successGreen = emeraldGreen;
-  static const infoBlue = cyberBlue;
+  // ── Semantic ──────────────────────────────────────────────────────
+  static const errorRed         = Color(0xFFFF453A);   // iOS system red
+  static const errorRedGlow     = Color(0x22FF453A);
+  static const warningOrange    = Color(0xFFFF9F0A);   // iOS system orange
+  static const warningAmber     = Color(0xFFFFD60A);   // iOS system yellow
+  static const successGreen     = emeraldGreen;
+  static const infoBlue         = cyberBlue;
 
-  // ── Light Gradient Presets ────────────────────────────────────────
+  // ── Gradient Presets ──────────────────────────────────────────────
+  /// Primary CTA — clean blue (used sparingly)
   static const gradientPrimary = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF4F46E5), Color(0xFF0284C7)],
+    colors: [Color(0xFF0A84FF), Color(0xFF0071E3)],
   );
 
+  /// Parent Hub — calm purple gradient
+  static const gradientParent = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF6E56CF), Color(0xFF4E3D9C)],
+  );
+
+  /// Safety gradient — green to teal
   static const gradientSafety = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [emeraldGreen, Color(0xFF0D9488)],
+    colors: [Color(0xFF30D158), Color(0xFF0D9488)],
   );
 
+  /// Danger — Women's Safety
   static const gradientDanger = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [softCoral, Color(0xFFE11D48)],
+    colors: [Color(0xFFFF453A), Color(0xFFD70015)],
   );
 
   static const gradientBackground = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFFFFF), background],
+    colors: [Color(0xFFFFFFFF), Color(0xFFF2F2F7)],
   );
 
-  // ── Light Card Surface Presets ────────────────────────────────────
-  static const glassWhite = Color(0xFFFFFFFF);
-  static const glassBorder = Color(0xFFE2E8F0);
-  static const glassDark = Color(0xFFF8FAFC);
+  // ── Glass / card surface ──────────────────────────────────────────
+  static const glassWhite  = Color(0xFFFFFFFF);
+  static const glassBorder = Color(0xFFE5E5EA);
+  static const glassDark   = Color(0xFFF2F2F7);
 }

@@ -33,13 +33,13 @@ class GlassCard extends StatelessWidget {
         color: gradient == null ? AppColors.surface : null,
         gradient: gradient,
         borderRadius: radius,
-        border: border ?? Border.all(color: AppColors.outline, width: 1.0),
+        border: border ?? Border.all(color: AppColors.outline, width: 0.5),
         boxShadow: gradient == null
             ? const [
                 BoxShadow(
-                  color: Color(0x080F172A),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
+                  color: Color(0x060F172A),
+                  blurRadius: 6,
+                  offset: Offset(0, 1),
                 )
               ]
             : null,

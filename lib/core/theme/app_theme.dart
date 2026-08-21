@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 import 'design_tokens.dart';
 
-/// Guardian Plus Design System — Fresh Light Theme
+/// Guardian Plus Design System — Clean White Pro (Apple-inspired)
 class AppTheme {
   AppTheme._();
 
@@ -14,14 +14,16 @@ class AppTheme {
   static ThemeData _buildLight() {
     const colorScheme = ColorScheme(
       brightness: Brightness.light,
-      primary: AppColors.cyberBlue,
-      onPrimary: AppColors.onPrimary,
-      secondary: AppColors.emeraldGreen,
-      onSecondary: AppColors.onPrimary,
-      tertiary: AppColors.neonPurple,
-      onTertiary: AppColors.onPrimary,
+      primary: AppColors.cyberBlue,           // iOS blue #0A84FF
+      onPrimary: Colors.white,
+      primaryContainer: Color(0xFFE8F4FF),
+      onPrimaryContainer: Color(0xFF0071E3),
+      secondary: AppColors.emeraldGreen,       // iOS green
+      onSecondary: Colors.white,
+      tertiary: AppColors.neonPurple,          // Purple for Parent Hub
+      onTertiary: Colors.white,
       error: AppColors.errorRed,
-      onError: AppColors.onPrimary,
+      onError: Colors.white,
       surface: AppColors.surface,
       onSurface: AppColors.onSurface,
       surfaceContainerHighest: AppColors.surfaceElevated,
@@ -36,26 +38,28 @@ class AppTheme {
       textTheme: _buildTextTheme(),
       appBarTheme: _buildAppBarTheme(),
       cardTheme: _buildCardTheme(),
-      elevatedButtonTheme: _buildElevatedButtonTheme(colorScheme),
-      outlinedButtonTheme: _buildOutlinedButtonTheme(colorScheme),
-      textButtonTheme: _buildTextButtonTheme(colorScheme),
+      elevatedButtonTheme: _buildElevatedButtonTheme(),
+      outlinedButtonTheme: _buildOutlinedButtonTheme(),
+      textButtonTheme: _buildTextButtonTheme(),
       inputDecorationTheme: _buildInputTheme(),
       iconTheme: const IconThemeData(color: AppColors.onSurface, size: DesignTokens.iconMd),
-      dividerTheme: const DividerThemeData(color: AppColors.outline, thickness: 1.0),
+      dividerTheme: const DividerThemeData(color: AppColors.outline, thickness: 0.5),
       bottomNavigationBarTheme: _buildBottomNavTheme(),
       navigationBarTheme: _buildNavigationBarTheme(),
       snackBarTheme: _buildSnackBarTheme(),
       dialogTheme: _buildDialogTheme(),
-      chipTheme: _buildChipTheme(colorScheme),
-      switchTheme: _buildSwitchTheme(colorScheme),
-      checkboxTheme: _buildCheckboxTheme(colorScheme),
+      chipTheme: _buildChipTheme(),
+      switchTheme: _buildSwitchTheme(),
+      checkboxTheme: _buildCheckboxTheme(),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.cyberBlue,
-        linearMinHeight: 4,
+        linearMinHeight: 3,
       ),
       extensions: const [GuardianThemeExtension()],
     );
   }
+
+  // ── Typography (SF Pro feel via Inter) ────────────────────────────
 
   static TextTheme _buildTextTheme() {
     return GoogleFonts.interTextTheme(
@@ -63,12 +67,13 @@ class AppTheme {
         displayLarge: TextStyle(
           fontSize: 57,
           fontWeight: FontWeight.w300,
-          letterSpacing: -0.25,
+          letterSpacing: -0.5,
           color: AppColors.onSurface,
         ),
         displayMedium: TextStyle(
           fontSize: 45,
           fontWeight: FontWeight.w300,
+          letterSpacing: -0.25,
           color: AppColors.onSurface,
         ),
         displaySmall: TextStyle(
@@ -79,113 +84,126 @@ class AppTheme {
         headlineLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
+          letterSpacing: -0.75,
           color: AppColors.onSurface,
         ),
         headlineMedium: TextStyle(
           fontSize: 28,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.25,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
           color: AppColors.onSurface,
         ),
         headlineSmall: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.25,
           color: AppColors.onSurface,
         ),
         titleLarge: TextStyle(
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: FontWeight.w600,
+          letterSpacing: -0.2,
           color: AppColors.onSurface,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.15,
+          letterSpacing: 0,
           color: AppColors.onSurface,
         ),
         titleSmall: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.1,
+          letterSpacing: 0,
           color: AppColors.onSurface,
         ),
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.2,
+          letterSpacing: 0,
           color: AppColors.onSurface,
+          height: 1.5,
         ),
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.2,
+          letterSpacing: 0,
           color: AppColors.onSurfaceMuted,
+          height: 1.5,
         ),
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.4,
+          letterSpacing: 0,
           color: AppColors.onSurfaceMuted,
+          height: 1.4,
         ),
         labelLarge: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.1,
+          letterSpacing: 0,
           color: AppColors.onSurface,
         ),
         labelMedium: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          letterSpacing: 0.5,
+          letterSpacing: 0.1,
           color: AppColors.onSurface,
         ),
         labelSmall: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          letterSpacing: 0.5,
+          letterSpacing: 0.2,
           color: AppColors.onSurfaceMuted,
         ),
       ),
     );
   }
 
+  // ── AppBar — clean white, no shadow ──────────────────────────────
+
   static AppBarTheme _buildAppBarTheme() => const AppBarTheme(
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.onSurface,
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0.5,
+        shadowColor: AppColors.outline,
         centerTitle: false,
         titleTextStyle: TextStyle(
-          fontSize: 20,
+          fontSize: 18,
           fontWeight: FontWeight.w700,
           color: AppColors.onSurface,
+          letterSpacing: -0.2,
         ),
-        iconTheme: IconThemeData(color: AppColors.onSurface),
+        iconTheme: IconThemeData(color: AppColors.onSurface, size: 22),
       );
+
+  // ── Card — flat, white, subtle border ─────────────────────────────
 
   static CardThemeData _buildCardTheme() => CardThemeData(
         color: AppColors.surface,
-        elevation: 1,
-        shadowColor: const Color(0x0F0F172A),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-          side: const BorderSide(color: AppColors.outline, width: 1.0),
+          side: const BorderSide(color: AppColors.outline, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         margin: EdgeInsets.zero,
       );
 
-  static ElevatedButtonThemeData _buildElevatedButtonTheme(ColorScheme cs) =>
+  // ── Elevated Button — Apple blue, rounded ─────────────────────────
+
+  static ElevatedButtonThemeData _buildElevatedButtonTheme() =>
       ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.cyberBlue,
           foregroundColor: Colors.white,
-          elevation: 1,
-          shadowColor: const Color(0x1F4F46E5),
+          elevation: 0,
+          shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(
             horizontal: DesignTokens.spacingXl,
-            vertical: DesignTokens.spacingMd,
+            vertical: 14,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
@@ -193,63 +211,76 @@ class AppTheme {
           textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
+            letterSpacing: -0.1,
           ),
           minimumSize: const Size(double.infinity, 50),
         ),
       );
 
-  static OutlinedButtonThemeData _buildOutlinedButtonTheme(ColorScheme cs) =>
+  // ── Outlined Button ───────────────────────────────────────────────
+
+  static OutlinedButtonThemeData _buildOutlinedButtonTheme() =>
       OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.cyberBlue,
-          side: const BorderSide(color: AppColors.cyberBlue, width: 1.5),
+          side: const BorderSide(color: AppColors.outline, width: 1),
           padding: const EdgeInsets.symmetric(
             horizontal: DesignTokens.spacingXl,
-            vertical: DesignTokens.spacingMd,
+            vertical: 14,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
           ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
           minimumSize: const Size(double.infinity, 50),
         ),
       );
 
-  static TextButtonThemeData _buildTextButtonTheme(ColorScheme cs) =>
+  // ── Text Button ───────────────────────────────────────────────────
+
+  static TextButtonThemeData _buildTextButtonTheme() =>
       TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.cyberBlue,
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       );
 
+  // ── Input — clean iOS-style ────────────────────────────────────────
+
   static InputDecorationTheme _buildInputTheme() => InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: AppColors.surfaceElevated,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: DesignTokens.spacingLg,
           vertical: DesignTokens.spacingMd,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: const BorderSide(color: AppColors.outline),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: const BorderSide(color: AppColors.outline),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: const BorderSide(color: AppColors.cyberBlue, width: 2),
+          borderSide: const BorderSide(color: AppColors.cyberBlue, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
           borderSide: const BorderSide(color: AppColors.errorRed),
         ),
-        hintStyle: const TextStyle(color: AppColors.onSurfaceMuted, fontSize: 14),
+        hintStyle: const TextStyle(color: AppColors.onSurfaceSubtle, fontSize: 15),
+        labelStyle: const TextStyle(color: AppColors.onSurfaceMuted, fontSize: 14),
         prefixIconColor: AppColors.onSurfaceMuted,
         suffixIconColor: AppColors.onSurfaceMuted,
       );
+
+  // ── Bottom Nav ────────────────────────────────────────────────────
 
   static BottomNavigationBarThemeData _buildBottomNavTheme() =>
       const BottomNavigationBarThemeData(
@@ -257,71 +288,87 @@ class AppTheme {
         selectedItemColor: AppColors.cyberBlue,
         unselectedItemColor: AppColors.onSurfaceMuted,
         type: BottomNavigationBarType.fixed,
-        elevation: 8,
+        elevation: 0,
       );
 
   static NavigationBarThemeData _buildNavigationBarTheme() =>
       NavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        elevation: 4,
-        indicatorColor: AppColors.cyberBlue.withOpacity(0.12),
+        elevation: 0,
+        indicatorColor: AppColors.cyberBlue.withOpacity(0.10),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: AppColors.cyberBlue, size: 24);
+            return const IconThemeData(color: AppColors.cyberBlue, size: 22);
           }
-          return const IconThemeData(color: AppColors.onSurfaceMuted, size: 24);
+          return const IconThemeData(color: AppColors.onSurfaceMuted, size: 22);
         }),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.cyberBlue,
             );
           }
           return const TextStyle(
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: FontWeight.w500,
             color: AppColors.onSurfaceMuted,
           );
         }),
       );
 
+  // ── Snack Bar — charcoal pill ─────────────────────────────────────
+
   static SnackBarThemeData _buildSnackBarTheme() => SnackBarThemeData(
         backgroundColor: AppColors.onSurface,
-        contentTextStyle: const TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMd)),
+        contentTextStyle: const TextStyle(
+            color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusMd)),
         behavior: SnackBarBehavior.floating,
+        elevation: 4,
       );
+
+  // ── Dialog ───────────────────────────────────────────────────────
 
   static DialogThemeData _buildDialogTheme() => DialogThemeData(
         backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
-        elevation: 8,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
+        elevation: 0,
+        shadowColor: Colors.transparent,
       );
 
-  static ChipThemeData _buildChipTheme(ColorScheme cs) => ChipThemeData(
+  // ── Chip ─────────────────────────────────────────────────────────
+
+  static ChipThemeData _buildChipTheme() => ChipThemeData(
         backgroundColor: AppColors.surfaceElevated,
-        selectedColor: AppColors.cyberBlue.withOpacity(0.15),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.onSurface),
-        side: const BorderSide(color: AppColors.outline),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusSm)),
+        selectedColor: AppColors.cyberBlue.withOpacity(0.12),
+        labelStyle: const TextStyle(
+            fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurface),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(DesignTokens.radiusFull)),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       );
 
-  static SwitchThemeData _buildSwitchTheme(ColorScheme cs) => SwitchThemeData(
+  // ── Switch — iOS style ────────────────────────────────────────────
+
+  static SwitchThemeData _buildSwitchTheme() => SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return Colors.white;
-          return AppColors.onSurfaceMuted;
+          return Colors.white;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return AppColors.cyberBlue;
-          }
-          return AppColors.surfaceHighest;
+          if (states.contains(WidgetState.selected)) return AppColors.cyberBlue;
+          return AppColors.outlineVariant;
         }),
+        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
       );
 
-  static CheckboxThemeData _buildCheckboxTheme(ColorScheme cs) => CheckboxThemeData(
+  // ── Checkbox ─────────────────────────────────────────────────────
+
+  static CheckboxThemeData _buildCheckboxTheme() => CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) return AppColors.cyberBlue;
           return Colors.transparent;
@@ -331,15 +378,16 @@ class AppTheme {
       );
 }
 
-/// Theme extension for Guardian Plus-specific design tokens
+// ── Theme Extension ───────────────────────────────────────────────────────
+
 @immutable
 class GuardianThemeExtension extends ThemeExtension<GuardianThemeExtension> {
   const GuardianThemeExtension({
-    this.glassBackground = const Color(0xFFFFFFFF),
-    this.glassBorder = const Color(0xFFE2E8F0),
+    this.glassBackground = AppColors.surface,
+    this.glassBorder = AppColors.outline,
     this.riskCritical = AppColors.errorRed,
-    this.riskHigh = const Color(0xFFFF6B35),
-    this.riskMedium = const Color(0xFFFFB800),
+    this.riskHigh = AppColors.warningOrange,
+    this.riskMedium = AppColors.warningAmber,
     this.riskLow = AppColors.emeraldGreen,
     this.riskNone = AppColors.onSurfaceMuted,
   });

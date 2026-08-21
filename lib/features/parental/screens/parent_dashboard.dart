@@ -1,106 +1,146 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../../shared/widgets/glass_card.dart';
+import 'child_rules_screen.dart';
+import '../widgets/child_rule_editor_sheet.dart';
 
 enum RiskLevel { clean, low, medium, high, critical }
 
-class ChildDeviceData {
-  ChildDeviceData({
-    required this.id,
-    required this.name,
-    required this.model,
-    required this.riskLevel,
-    required this.screenTimeToday,
-    required this.lastSeen,
-    required this.batteryLevel,
-    required this.location,
-    this.isPaused = false,
-  });
-
-  final String id;
-  String name;
-  String model;
-  RiskLevel riskLevel;
-  String screenTimeToday;
-  String lastSeen;
-  int batteryLevel;
-  String location;
-  bool isPaused;
-}
-
-/// Parent Dashboard
-/// Overview of linked family devices, risk alerts, screen time insights, and device management tools.
-class ParentDashboard extends StatefulWidget {
+/// Parent Dashboard — Admin-only view.
+/// Shows child selector, per-child device stats, and per-child rules panel.
+class ParentDashboard extends ConsumerStatefulWidget {
   const ParentDashboard({super.key});
 
   @override
-  State<ParentDashboard> createState() => _ParentDashboardState();
+  ConsumerState<ParentDashboard> createState() => _ParentDashboardState();
 }
 
-class _ParentDashboardState extends State<ParentDashboard> {
-  final List<ChildDeviceData> _devices = [
-    ChildDeviceData(
-      id: 'dev_1',
-      name: "Riya's Phone",
-      model: 'Samsung Galaxy A54',
-      riskLevel: RiskLevel.medium,
-      screenTimeToday: '4h 23m',
-      lastSeen: '2 min ago',
-      batteryLevel: 78,
-      location: 'Green Park High School',
-    ),
-    ChildDeviceData(
-      id: 'dev_2',
-      name: "Arjun's Tablet",
-      model: 'Samsung Tab S7',
-      riskLevel: RiskLevel.low,
-      screenTimeToday: '1h 45m',
-      lastSeen: '15 min ago',
-      batteryLevel: 92,
-      location: 'Home Wi-Fi',
-    ),
-  ];
+class _ParentDashboardState extends ConsumerState<ParentDashboard> {
+  int _selectedChildIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(familyProfileProvider);
+    final children = profile.children;
+
+    if (children.isEmpty) {
+      return _buildNoChildrenView(context, profile);
+    }
+
+    final selectedChild = children[_selectedChildIndex.clamp(0, children.length - 1)];
+    final rules = ref.watch(childRulesProvider(selectedChild.id));
+    final enabledRules = rules.where((r) => r.isEnabled).length;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            _buildAppBar(),
+            _buildAppBar(context, profile),
             SliverPadding(
-              padding: const EdgeInsets.all(DesignTokens.screenPadding),
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.screenPadding,
+                0,
+                DesignTokens.screenPadding,
+                120,
+              ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildRiskOverview(),
+                  // ── Family Safety Index ──────────────────────────────
+                  _buildFamilySafetyBanner(children, profile),
                   const SizedBox(height: DesignTokens.spacingXl),
-                  _buildMonitoredDevicesHeader(),
+
+                  // ── Child Selector ───────────────────────────────────
+                  _buildChildSelector(children),
+                  const SizedBox(height: DesignTokens.spacingXl),
+
+                  // ── Selected Child Device Card ───────────────────────
+                  _buildChildDeviceCard(context, selectedChild),
+                  const SizedBox(height: DesignTokens.spacingXl),
+
+                  // ── Rules Panel ──────────────────────────────────────
+                  _buildRulesHeader(context, selectedChild, rules.length, enabledRules),
                   const SizedBox(height: DesignTokens.spacingMd),
-                  ..._devices.map((device) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: DesignTokens.spacingMd),
-                      child: _buildChildDeviceCard(device),
-                    );
-                  }),
+                  if (rules.isEmpty)
+                    _buildEmptyRulesHint(context, selectedChild)
+                  else
+                    ...rules.take(4).map((rule) => Padding(
+                          padding: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
+                          child: _RuleListTile(
+                            rule: rule,
+                            onToggle: (v) {
+                              ref.read(familyProfileProvider.notifier)
+                                  .updateRule(rule.copyWith(isEnabled: v));
+                            },
+                            onEdit: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => ChildRuleEditorSheet(
+                                  childId: selectedChild.id,
+                                  childName: selectedChild.name,
+                                  existingRule: rule,
+                                ),
+                              );
+                            },
+                          ),
+                        )),
+
+                  if (rules.length > 4)
+                    Padding(
+                      padding: const EdgeInsets.only(top: DesignTokens.spacingSm),
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChildRulesScreen(child: selectedChild),
+                          ),
+                        ),
+                        icon: const Icon(Icons.expand_more_rounded),
+                        label: Text('View all ${rules.length} rules'),
+                      ),
+                    ),
+
                   const SizedBox(height: DesignTokens.spacingXl),
+
+                  // ── Recent Alerts ────────────────────────────────────
                   _buildSectionTitle('Recent Alerts'),
-                  const SizedBox(height: DesignTokens.spacingLg),
+                  const SizedBox(height: DesignTokens.spacingMd),
                   _buildAlertFeed(),
-                  const SizedBox(height: 100),
                 ]),
               ),
             ),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'parent_fab',
+        onPressed: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => ChildRuleEditorSheet(
+            childId: selectedChild.id,
+            childName: selectedChild.name,
+          ),
+        ),
+        backgroundColor: AppColors.neonPurple,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Add Rule', style: TextStyle(fontWeight: FontWeight.w600)),
+      ),
     );
   }
 
-  SliverAppBar _buildAppBar() {
+  // ── App Bar ─────────────────────────────────────────────────────────
+
+  SliverAppBar _buildAppBar(BuildContext context, FamilyProfile profile) {
     return SliverAppBar(
       backgroundColor: AppColors.surface,
       floating: true,
@@ -117,499 +157,584 @@ class _ParentDashboardState extends State<ParentDashboard> {
               ),
               borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
             ),
-            child: const Icon(Icons.family_restroom_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 20),
           ),
           const SizedBox(width: DesignTokens.spacingSm),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Parent Hub',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
-              Text('${_devices.length} devices monitored',
-                  style: const TextStyle(fontSize: 11, color: AppColors.neonPurple, fontWeight: FontWeight.w500)),
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+              Text(profile.familyName,
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.neonPurple, fontWeight: FontWeight.w500)),
             ],
           ),
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.cyberBlue),
-            tooltip: 'Add Device',
-            onPressed: () => _showAddDeviceModal(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRiskOverview() {
-    return GlassCard(
-      padding: const EdgeInsets.all(DesignTokens.screenPadding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Family Safety Index',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.onSurfaceMuted,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Moderate Attention Needed',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onSurface,
-                    ),
-                  ),
+          // Family code badge
+          GestureDetector(
+            onTap: () => _showFamilyInfoSheet(context, profile),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.neonPurple.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                border: Border.all(color: AppColors.neonPurple.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.vpn_key_rounded, size: 12, color: AppColors.neonPurple),
+                  const SizedBox(width: 4),
+                  Text(profile.familyCode,
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.neonPurple)),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.warningAmber.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-                  border: Border.all(color: AppColors.warningAmber, width: 1),
-                ),
-                child: Row(
-                  children: const [
-                    Icon(Icons.warning_amber_rounded, color: AppColors.warningAmber, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      '1 Risk Alert',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.warningAmber,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: DesignTokens.spacingLg),
-          Row(
-            children: [
-              _MetricCard(label: 'Active Rules', value: '14/14', icon: Icons.gavel_rounded, color: AppColors.cyberBlue),
-              const SizedBox(width: DesignTokens.spacingMd),
-              _MetricCard(label: 'Safe Zone', value: 'Inside', icon: Icons.location_on_rounded, color: AppColors.emeraldGreen),
-              const SizedBox(width: DesignTokens.spacingMd),
-              _MetricCard(label: 'Avg Screen Time', value: '3h 04m', icon: Icons.timer_rounded, color: AppColors.neonPurple),
-            ],
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.person_add_rounded, color: AppColors.cyberBlue),
+            tooltip: 'Add Child',
+            onPressed: () => _showAddChildSheet(context),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildMonitoredDevicesHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'Monitored Devices',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onSurface,
+  // ── Family Safety Banner ─────────────────────────────────────────────
+
+  Widget _buildFamilySafetyBanner(List<ChildProfile> children, FamilyProfile profile) {
+    final totalRules = profile.rules.where((r) => r.isEnabled).length;
+    return Container(
+      padding: const EdgeInsets.all(DesignTokens.spacingLg),
+      decoration: BoxDecoration(
+        gradient: AppColors.gradientParent,
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cyberBlue.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
-        ),
-        ElevatedButton.icon(
-          onPressed: () => _showAddDeviceModal(context),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Add Device'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.cyberBlue,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(120, 38),
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusSm)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Family Safety Index',
+                    style: TextStyle(fontSize: 12, color: Colors.white70)),
+                const SizedBox(height: 4),
+                const Text('All Systems Active',
+                    style: TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _StatPill(label: '${children.length} Children', icon: Icons.child_care_rounded),
+                    const SizedBox(width: 8),
+                    _StatPill(label: '$totalRules Active Rules', icon: Icons.gavel_rounded),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.shield_rounded, color: Colors.white, size: 30),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: DesignTokens.animNormal).slideY(begin: 0.05, end: 0);
+  }
+
+  // ── Child Selector ───────────────────────────────────────────────────
+
+  Widget _buildChildSelector(List<ChildProfile> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Select Child',
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+        const SizedBox(height: DesignTokens.spacingMd),
+        SizedBox(
+          height: 90,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: children.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final child = children[index];
+              final isSelected = _selectedChildIndex == index;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedChildIndex = index),
+                child: AnimatedContainer(
+                  duration: DesignTokens.animFast,
+                  width: 76,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.cyberBlue.withValues(alpha: 0.08)
+                        : AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
+                    border: Border.all(
+                      color: isSelected ? AppColors.cyberBlue : AppColors.outline,
+                      width: isSelected ? 1.5 : 0.5,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: AppColors.cyberBlue.withValues(alpha: 0.12),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : [],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(child.avatarEmoji, style: const TextStyle(fontSize: 28)),
+                      const SizedBox(height: 4),
+                      Text(
+                        child.name,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? AppColors.cyberBlue : AppColors.onSurfaceMuted,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
-    );
+    ).animate().fadeIn(delay: 100.ms);
   }
 
-  Widget _buildChildDeviceCard(ChildDeviceData device) {
-    Color riskColor;
-    String riskLabel;
-    switch (device.riskLevel) {
-      case RiskLevel.clean:
-      case RiskLevel.low:
-        riskColor = AppColors.emeraldGreen;
-        riskLabel = 'Safe';
-        break;
-      case RiskLevel.medium:
-        riskColor = AppColors.warningAmber;
-        riskLabel = 'Medium Risk';
-        break;
-      case RiskLevel.high:
-      case RiskLevel.critical:
-        riskColor = AppColors.errorRed;
-        riskLabel = 'High Risk';
-        break;
-    }
+  // ── Child Device Card ────────────────────────────────────────────────
+
+  Widget _buildChildDeviceCard(BuildContext context, ChildProfile child) {
+    // Mock device data based on child
+    final isRiya = child.id == 'child_riya';
+    final screenTime = isRiya ? '4h 23m' : '1h 45m';
+    final battery = isRiya ? 78 : 92;
+    final location = isRiya ? 'Green Park High School' : 'Home Wi-Fi';
+    final riskColor = isRiya ? AppColors.warningAmber : AppColors.emeraldGreen;
+    final riskLabel = isRiya ? 'Medium Risk' : 'Safe';
 
     return GlassCard(
-      onTap: () => _showDeviceDetailsModal(context, device),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: AppColors.neonPurple.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+                  color: AppColors.neonPurple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
                 ),
-                child: const Icon(Icons.phone_android_rounded, color: AppColors.neonPurple, size: 24),
+                child: Center(
+                  child: Text(child.avatarEmoji, style: const TextStyle(fontSize: 24)),
+                ),
               ),
               const SizedBox(width: DesignTokens.spacingMd),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(device.name,
+                    Text(child.name,
                         style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.onSurface)),
-                    Text('${device.model} • ${device.location}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.onSurfaceMuted)),
+                            fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+                    Text('${child.deviceModel} • $location',
+                        style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted),
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: riskColor.withOpacity(0.15),
+                  color: riskColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-                  border: Border.all(color: riskColor.withOpacity(0.5)),
+                  border: Border.all(color: riskColor.withValues(alpha: 0.5)),
                 ),
-                child: Text(
-                  riskLabel,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: riskColor,
-                  ),
-                ),
+                child: Text(riskLabel,
+                    style: TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600, color: riskColor)),
               ),
             ],
           ),
           const SizedBox(height: DesignTokens.spacingMd),
-          const Divider(color: AppColors.outline, height: 1),
+          const Divider(color: AppColors.outline),
           const SizedBox(height: DesignTokens.spacingMd),
+          // Stats row
           Row(
             children: [
-              _DeviceStat(
-                  icon: Icons.timer_outlined,
-                  label: 'Screen time',
-                  value: device.screenTimeToday),
-              const SizedBox(width: DesignTokens.spacingLg),
+              _DeviceStat(icon: Icons.timer_outlined, label: 'Screen time', value: screenTime),
+              const SizedBox(width: DesignTokens.spacingXl),
               _DeviceStat(
                   icon: Icons.battery_charging_full_rounded,
                   label: 'Battery',
-                  value: '${device.batteryLevel}%'),
+                  value: '$battery%'),
               const Spacer(),
-              ElevatedButton(
-                onPressed: () => _showDeviceDetailsModal(context, device),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(80, 34),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  backgroundColor: AppColors.cyberBlue,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusSm)),
+            ],
+          ),
+          const SizedBox(height: DesignTokens.spacingMd),
+          // Quick controls
+          Row(
+            children: [
+              _QuickControl(
+                icon: Icons.pause_rounded,
+                label: 'Pause Net',
+                color: AppColors.warningOrange,
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Internet paused for ${child.name}')),
                 ),
-                child: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(width: DesignTokens.spacingMd),
+              _QuickControl(
+                icon: Icons.location_on_rounded,
+                label: 'Live Track',
+                color: AppColors.neonPurple,
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${child.name} is at $location')),
+                ),
+              ),
+              const SizedBox(width: DesignTokens.spacingMd),
+              _QuickControl(
+                icon: Icons.notifications_active_rounded,
+                label: 'Ring',
+                color: AppColors.cyberBlue,
+                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Ringing ${child.deviceName}...')),
+                ),
               ),
             ],
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.03, end: 0);
+  }
+
+  // ── Rules Header ─────────────────────────────────────────────────────
+
+  Widget _buildRulesHeader(
+      BuildContext context, ChildProfile child, int total, int enabled) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "${child.name}'s Rules",
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+              ),
+              Text(
+                '$enabled/$total active',
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.neonPurple, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChildRulesScreen(child: child),
+            ),
+          ),
+          icon: const Icon(Icons.open_in_full_rounded, size: 16),
+          label: const Text('Manage All'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.neonPurple,
+            side: BorderSide(color: AppColors.neonPurple.withValues(alpha: 0.5)),
+            minimumSize: const Size(0, 36),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+          ),
+        ),
+      ],
+    ).animate().fadeIn(delay: 200.ms);
+  }
+
+  Widget _buildEmptyRulesHint(BuildContext context, ChildProfile child) {
+    return GlassCard(
+      child: Column(
+        children: [
+          const Icon(Icons.rule_rounded, color: AppColors.neonPurple, size: 36),
+          const SizedBox(height: DesignTokens.spacingMd),
+          Text(
+            'No rules set for ${child.name} yet',
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+          ),
+          const SizedBox(height: DesignTokens.spacingXs),
+          const Text(
+            'Tap "Add Rule" to set up screen time limits, app blocks, bedtime curfews, and more.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted, height: 1.4),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 250.ms);
   }
 
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
       style: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
-        color: AppColors.onSurface,
-      ),
+          fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface),
     );
   }
 
   Widget _buildAlertFeed() {
-    return Column(
-      children: [
-        _AlertTile(
-          category: 'Possible explicit language',
-          source: 'SMS',
-          confidence: 73,
-          signals: '3 matched patterns',
-          time: '14 min ago',
-          level: RiskLevel.medium,
-        ),
-        const SizedBox(height: DesignTokens.spacingSm),
-        _AlertTile(
-          category: 'Unknown URL in message',
-          source: 'SMS',
-          confidence: 89,
-          signals: 'Domain age < 7 days, no HTTPS',
-          time: '1 hr ago',
-          level: RiskLevel.high,
-        ),
-        const SizedBox(height: DesignTokens.spacingSm),
-        _AlertTile(
-          category: 'Excessive app screen time',
-          source: 'App Usage',
-          confidence: 100,
-          signals: 'TikTok: 3h 12m today (limit: 2h)',
-          time: '2 hr ago',
-          level: RiskLevel.low,
-        ),
-      ],
-    );
-  }
-
-  void _showAddDeviceModal(BuildContext context) {
-    final nameCtrl = TextEditingController();
-    final modelCtrl = TextEditingController();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
+    final alerts = [
+      (
+        category: 'Possible explicit language',
+        source: 'SMS • Riya',
+        time: '14 min ago',
+        level: RiskLevel.medium,
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: DesignTokens.screenPadding,
-          right: DesignTokens.screenPadding,
-          top: DesignTokens.screenPadding,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + DesignTokens.screenPadding,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      (
+        category: 'Unknown URL in message',
+        source: 'SMS • Riya',
+        time: '1 hr ago',
+        level: RiskLevel.high,
+      ),
+      (
+        category: 'Screen time limit reached',
+        source: 'App Usage • Riya',
+        time: '2 hr ago',
+        level: RiskLevel.low,
+      ),
+    ];
+
+    return Column(
+      children: alerts.asMap().entries.map((e) {
+        final a = e.value;
+        Color levelColor;
+        switch (a.level) {
+          case RiskLevel.high:
+          case RiskLevel.critical:
+            levelColor = AppColors.errorRed;
+            break;
+          case RiskLevel.medium:
+            levelColor = AppColors.warningAmber;
+            break;
+          default:
+            levelColor = AppColors.emeraldGreen;
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
+          child: GlassCard(
+            padding: const EdgeInsets.all(DesignTokens.spacingMd),
+            child: Row(
               children: [
-                const Text(
-                  'Add New Child Device',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: levelColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.warning_amber_rounded, color: levelColor, size: 18),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
+                const SizedBox(width: DesignTokens.spacingMd),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(a.category,
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
+                      Text(a.source,
+                          style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted)),
+                    ],
+                  ),
                 ),
+                Text(a.time,
+                    style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted)),
               ],
             ),
-            const SizedBox(height: DesignTokens.spacingMd),
-            Container(
-              padding: const EdgeInsets.all(DesignTokens.spacingMd),
-              decoration: BoxDecoration(
-                color: AppColors.cyberBlue.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-                border: Border.all(color: AppColors.cyberBlue.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.qr_code_2_rounded, color: AppColors.cyberBlue, size: 28),
-                  const SizedBox(width: DesignTokens.spacingMd),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text('Pairing PIN: 842-195',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.cyberBlue)),
-                        Text('Enter this code on the child Guardian app to pair automatically.',
-                            style: TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted)),
-                      ],
-                    ),
+          ).animate().fadeIn(delay: Duration(milliseconds: 300 + e.key * 60)),
+        );
+      }).toList(),
+    );
+  }
+
+  // ── No Children View ─────────────────────────────────────────────────
+
+  Widget _buildNoChildrenView(BuildContext context, FamilyProfile profile) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(DesignTokens.screenPadding),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.neonPurple.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: DesignTokens.spacingLg),
-            const Text('Or Register Manually:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted)),
-            const SizedBox(height: DesignTokens.spacingSm),
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: "Child's Device Name (e.g. Maya's Phone)",
-                prefixIcon: Icon(Icons.person_outline),
-              ),
-            ),
-            const SizedBox(height: DesignTokens.spacingMd),
-            TextField(
-              controller: modelCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Device Model (e.g. Pixel 8, iPhone 14)',
-                prefixIcon: Icon(Icons.phone_android_outlined),
-              ),
-            ),
-            const SizedBox(height: DesignTokens.spacingXl),
-            ElevatedButton(
-              onPressed: () {
-                if (nameCtrl.text.isNotEmpty) {
-                  setState(() {
-                    _devices.add(
-                      ChildDeviceData(
-                        id: 'dev_${DateTime.now().millisecondsSinceEpoch}',
-                        name: nameCtrl.text,
-                        model: modelCtrl.text.isEmpty ? 'Android Device' : modelCtrl.text,
-                        riskLevel: RiskLevel.clean,
-                        screenTimeToday: '0m',
-                        lastSeen: 'Just now',
-                        batteryLevel: 100,
-                        location: 'Connected',
-                      ),
-                    );
-                  });
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Added "${nameCtrl.text}" to monitored devices.')),
-                  );
-                }
-              },
-              child: const Text('Add Monitored Device'),
-            ),
-          ],
+                  child: const Icon(Icons.child_care_rounded, color: AppColors.neonPurple, size: 40),
+                ),
+                const SizedBox(height: DesignTokens.spacingXl),
+                const Text(
+                  'No Children Added Yet',
+                  style: TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+                ),
+                const SizedBox(height: DesignTokens.spacingSm),
+                const Text(
+                  'Add your child\'s device to start monitoring and setting rules.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: AppColors.onSurfaceMuted, height: 1.4),
+                ),
+                const SizedBox(height: DesignTokens.spacingXxl),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddChildSheet(context),
+                  icon: const Icon(Icons.person_add_rounded),
+                  label: const Text('Add Child'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.neonPurple,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ).animate().fadeIn(duration: DesignTokens.animNormal),
+          ),
         ),
       ),
     );
   }
 
-  void _showDeviceDetailsModal(BuildContext context, ChildDeviceData device) {
+  // ── Modals ───────────────────────────────────────────────────────────
+
+  void _showAddChildSheet(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final emojiOptions = ['👧', '👦', '🧒', '👶'];
+    String selectedEmoji = '👧';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXl)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXxl)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => Padding(
-          padding: const EdgeInsets.all(DesignTokens.screenPadding),
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.cyberBlue.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-                    ),
-                    child: const Icon(Icons.phone_android_rounded, color: AppColors.cyberBlue, size: 26),
-                  ),
-                  const SizedBox(width: DesignTokens.spacingMd),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(device.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
-                        Text('${device.model} • ${device.location}', style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
-                      ],
-                    ),
-                  ),
+                  const Text('Add Child',
+                      style: TextStyle(
+                          fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+                  const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close_rounded),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
               ),
-              const SizedBox(height: DesignTokens.spacingLg),
-              const Divider(color: AppColors.outline),
-              const SizedBox(height: DesignTokens.spacingMd),
-
-              // Device Quick Controls
+              const SizedBox(height: 16),
+              const Text('Choose Avatar',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted)),
+              const SizedBox(height: 8),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _QuickControl(
-                    icon: device.isPaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-                    label: device.isPaused ? 'Resume Internet' : 'Pause Internet',
-                    color: device.isPaused ? AppColors.emeraldGreen : AppColors.warningOrange,
-                    onTap: () {
-                      setModalState(() => device.isPaused = !device.isPaused);
-                      setState(() {});
-                    },
-                  ),
-                  _QuickControl(
-                    icon: Icons.notifications_active_rounded,
-                    label: 'Ring Device',
-                    color: AppColors.cyberBlue,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Ringing ${device.name}...')),
-                      );
-                    },
-                  ),
-                  _QuickControl(
-                    icon: Icons.location_on_rounded,
-                    label: 'Live Track',
-                    color: AppColors.neonPurple,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Locating ${device.name}: ${device.location}')),
-                      );
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: DesignTokens.spacingLg),
-              const Text('Screen Time & Restrictions', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
-              const SizedBox(height: DesignTokens.spacingSm),
-              _DetailRow(label: 'Today Screen Time', value: device.screenTimeToday, icon: Icons.timer_outlined),
-              _DetailRow(label: 'Battery Remaining', value: '${device.batteryLevel}%', icon: Icons.battery_std_rounded),
-              _DetailRow(label: 'Safe Zone Status', value: device.location, icon: Icons.shield_outlined),
-
-              const SizedBox(height: DesignTokens.spacingLg),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _devices.removeWhere((d) => d.id == device.id);
-                        });
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Removed ${device.name}')),
-                        );
-                      },
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.errorRed, size: 18),
-                      label: const Text('Unpair Device', style: TextStyle(color: AppColors.errorRed)),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.errorRed),
-                        minimumSize: const Size(double.infinity, 44),
+                children: emojiOptions.map((e) {
+                  final isSelected = selectedEmoji == e;
+                  return GestureDetector(
+                    onTap: () => setSheet(() => selectedEmoji = e),
+                    child: AnimatedContainer(
+                      duration: DesignTokens.animFast,
+                      margin: const EdgeInsets.only(right: 10),
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.neonPurple.withValues(alpha: 0.1)
+                            : AppColors.surfaceElevated,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? AppColors.neonPurple : AppColors.outline,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(e, style: const TextStyle(fontSize: 26)),
                       ),
                     ),
-                  ),
-                ],
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Child's Name",
+                  hintText: 'e.g. Riya',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
+                ),
+                textCapitalization: TextCapitalization.words,
+                autofocus: true,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  ref.read(familyProfileProvider.notifier).addChild(
+                        ChildProfile(
+                          id: 'child_${DateTime.now().millisecondsSinceEpoch}',
+                          name: nameCtrl.text.trim(),
+                          avatarEmoji: selectedEmoji,
+                          deviceId: '',
+                          deviceName: "${nameCtrl.text.trim()}'s Device",
+                          deviceModel: 'Unknown Device',
+                        ),
+                      );
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${nameCtrl.text.trim()} added to your family!'),
+                      backgroundColor: AppColors.emeraldGreen,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.neonPurple, foregroundColor: Colors.white),
+                child: const Text('Add Child'),
               ),
             ],
           ),
@@ -617,34 +742,207 @@ class _ParentDashboardState extends State<ParentDashboard> {
       ),
     );
   }
+
+  void _showFamilyInfoSheet(BuildContext context, FamilyProfile profile) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXxl)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Family Info',
+                style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+            const SizedBox(height: 16),
+            GlassCard(
+              child: Column(
+                children: [
+                  _InfoRow(label: 'Family Name', value: profile.familyName),
+                  _InfoRow(label: 'Your Role', value: '👑 Family Admin'),
+                  _InfoRow(label: 'Children', value: '${profile.children.length}'),
+                  _InfoRow(label: 'Members', value: '${profile.members.length}'),
+                  const Divider(color: AppColors.outline),
+                  const SizedBox(height: 8),
+                  const Text('Family Code (share with members)',
+                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.neonPurple.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                      border: Border.all(color: AppColors.neonPurple.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          profile.familyCode,
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 4,
+                            color: AppColors.neonPurple,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.copy_rounded, color: AppColors.neonPurple, size: 18),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (profile.members.isNotEmpty) ...[
+              const Text('Family Members',
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+              const SizedBox(height: 8),
+              ...profile.members.map((m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_rounded,
+                            color: AppColors.cyberBlue, size: 18),
+                        const SizedBox(width: 8),
+                        Text(m.name,
+                            style: const TextStyle(
+                                fontSize: 14, color: AppColors.onSurface)),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.cyberBlue.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                          ),
+                          child: const Text('Member',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.cyberBlue)),
+                        ),
+                      ],
+                    ),
+                  )),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value, required this.icon, required this.color});
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
+// ── Compact Rule List Tile (for dashboard) ────────────────────────────────
+
+class _RuleListTile extends StatelessWidget {
+  const _RuleListTile({
+    required this.rule,
+    required this.onToggle,
+    required this.onEdit,
+  });
+
+  final ChildRule rule;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          border: Border.all(color: AppColors.outline),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 4),
-            Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
-            Text(label, style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted)),
-          ],
-        ),
+    final typeColor = _typeColor(rule.type);
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          Text(rule.type.emoji, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(rule.label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: rule.isEnabled ? AppColors.onSurface : AppColors.onSurfaceMuted,
+                    )),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: typeColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                      ),
+                      child: Text(rule.value,
+                          style: TextStyle(
+                              fontSize: 10, fontWeight: FontWeight.w700, color: typeColor)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onEdit,
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.edit_rounded, color: AppColors.onSurfaceMuted, size: 16),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Switch(
+            value: rule.isEnabled,
+            onChanged: onToggle,
+            activeColor: typeColor,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _typeColor(RuleType type) {
+    switch (type) {
+      case RuleType.screenTimeLimit: return AppColors.cyberBlue;
+      case RuleType.appBlock:        return AppColors.errorRed;
+      case RuleType.bedtimeCurfew:   return AppColors.neonPurple;
+      case RuleType.safeZone:        return AppColors.emeraldGreen;
+      case RuleType.contentFilter:   return AppColors.warningOrange;
+      case RuleType.webFilter:       return AppColors.warningAmber;
+    }
+  }
+}
+
+// ── Shared Sub-widgets ────────────────────────────────────────────────────
+
+class _StatPill extends StatelessWidget {
+  const _StatPill({required this.label, required this.icon});
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white70, size: 13),
+          const SizedBox(width: 4),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
@@ -665,8 +963,11 @@ class _DeviceStat extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 9, color: AppColors.onSurfaceMuted)),
-            Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
+            Text(label,
+                style: const TextStyle(fontSize: 9, color: AppColors.onSurfaceMuted)),
+            Text(value,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
           ],
         ),
       ],
@@ -675,7 +976,8 @@ class _DeviceStat extends StatelessWidget {
 }
 
 class _QuickControl extends StatelessWidget {
-  const _QuickControl({required this.icon, required this.label, required this.color, required this.onTap});
+  const _QuickControl(
+      {required this.icon, required this.label, required this.color, required this.onTap});
   final IconData icon;
   final String label;
   final Color color;
@@ -685,106 +987,45 @@ class _QuickControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(height: 6),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-        ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: color)),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value, required this.icon});
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
   final String label;
   final String value;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: AppColors.onSurfaceMuted),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
+          Text(label,
+              style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
           const Spacer(),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AlertTile extends StatelessWidget {
-  const _AlertTile({
-    required this.category,
-    required this.source,
-    required this.confidence,
-    required this.signals,
-    required this.time,
-    required this.level,
-  });
-
-  final String category;
-  final String source;
-  final int confidence;
-  final String signals;
-  final String time;
-  final RiskLevel level;
-
-  @override
-  Widget build(BuildContext context) {
-    Color levelColor;
-    switch (level) {
-      case RiskLevel.clean:
-      case RiskLevel.low:
-        levelColor = AppColors.emeraldGreen;
-        break;
-      case RiskLevel.medium:
-        levelColor = AppColors.warningAmber;
-        break;
-      case RiskLevel.high:
-      case RiskLevel.critical:
-        levelColor = AppColors.errorRed;
-        break;
-    }
-
-    return GlassCard(
-      padding: const EdgeInsets.all(DesignTokens.spacingMd),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: levelColor.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.warning_amber_rounded, color: levelColor, size: 20),
-          ),
-          const SizedBox(width: DesignTokens.spacingMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(category, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-                Text('$source • $signals', style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted)),
-              ],
-            ),
-          ),
-          Text(time, style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted)),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
         ],
       ),
     );

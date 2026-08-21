@@ -1,25 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../shared/widgets/glass_card.dart';
+import '../services/url_safety_service.dart';
+import '../services/email_breach_service.dart';
 
 /// Cybersecurity Dashboard — Vibrant, Interactive, Light Theme
-class CybersecurityDashboard extends StatefulWidget {
+class CybersecurityDashboard extends ConsumerStatefulWidget {
   const CybersecurityDashboard({super.key});
 
   @override
-  State<CybersecurityDashboard> createState() => _CybersecurityDashboardState();
+  ConsumerState<CybersecurityDashboard> createState() => _CybersecurityDashboardState();
 }
 
-class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
+class _CybersecurityDashboardState extends ConsumerState<CybersecurityDashboard> {
   final _urlController = TextEditingController();
   final _breachEmailController = TextEditingController();
 
   bool _isScanning = false;
+  bool _isUrlScanning = false;
+  bool _isBreachChecking = false;
+
   bool _webShieldEnabled = true;
   bool _wifiGuardEnabled = true;
   bool _phishingFilterEnabled = true;
@@ -102,10 +108,10 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
                 ),
               ),
               Text(
-                'Real-Time AI Threat Protection',
+                'Real-Time Defense Active',
                 style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.cyberBlue,
+                  color: AppColors.emeraldGreen,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -114,7 +120,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded, color: AppColors.cyberBlue),
-            tooltip: 'Scan QR Code',
+            tooltip: 'QR Safety Scanner',
             onPressed: () => context.push(Routes.qrScanner),
           ),
         ],
@@ -129,14 +135,14 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
         borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x294F46E5),
-            blurRadius: 16,
+            color: Color(0x280A84FF),
+            blurRadius: 18,
             offset: Offset(0, 6),
-          )
+          ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(DesignTokens.screenPadding),
+        padding: const EdgeInsets.all(DesignTokens.spacingXl),
         child: Column(
           children: [
             Row(
@@ -154,42 +160,39 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                            Icon(Icons.shield_rounded, size: 12, color: Colors.white),
                             SizedBox(width: 4),
                             Text(
-                              'SYSTEM PROTECTED',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 1.0),
+                              'PROTECTION ACTIVE',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: DesignTokens.spacingSm),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '$_threatScore',
-                            style: const TextStyle(
-                              fontSize: 52,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              height: 1,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              '/ 100',
-                              style: TextStyle(fontSize: 18, color: Colors.white70, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: DesignTokens.spacingMd),
+                      const Text(
+                        'Device Security Status',
+                        style: TextStyle(fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 2),
+                      Text(
+                        '$_threatScore/100',
+                        style: const TextStyle(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
                       const Text(
-                        '0 Active Malware Threats Detected',
-                        style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500),
+                        '0 Active Threats Detected',
+                        style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -220,7 +223,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
                   children: [
                     Icon(Icons.shield_outlined, color: Colors.white70, size: 16),
                     SizedBox(width: 6),
-                    Text('Last Scan: Today, 2:45 PM', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                    Text('Last Scan: Just now', style: TextStyle(fontSize: 12, color: Colors.white70)),
                   ],
                 ),
                 ElevatedButton.icon(
@@ -273,21 +276,54 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
                 child: TextField(
                   controller: _urlController,
                   decoration: const InputDecoration(
-                    hintText: 'https://example-verify-login.com',
+                    hintText: 'e.g. paypa1-verify-account.top/login',
                     prefixIcon: Icon(Icons.search_rounded),
                     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
+                  onSubmitted: (_) => _analyzeUrlInput(),
                 ),
               ),
               const SizedBox(width: DesignTokens.spacingSm),
               ElevatedButton(
-                onPressed: _analyzeUrlInput,
+                onPressed: _isUrlScanning ? null : _analyzeUrlInput,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(100, 48),
                   backgroundColor: AppColors.cyberBlue,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Scan Link'),
+                child: _isUrlScanning
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Scan Link'),
+              ),
+            ],
+          ),
+          const SizedBox(height: DesignTokens.spacingMd),
+          // Quick sample test chips
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              const Text('Quick Test:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted)),
+              _SampleChip(
+                label: '⚠️ Phishing Link',
+                onTap: () {
+                  _urlController.text = 'http://paypa1-account-security.xyz/verify-login';
+                  _analyzeUrlInput();
+                },
+              ),
+              _SampleChip(
+                label: '🚨 Fake Bank IP',
+                onTap: () {
+                  _urlController.text = 'http://192.168.1.100/chase-banking-signin.php';
+                  _analyzeUrlInput();
+                },
+              ),
+              _SampleChip(
+                label: '🛡️ Safe Site',
+                onTap: () {
+                  _urlController.text = 'https://google.com';
+                  _analyzeUrlInput();
+                },
               ),
             ],
           ),
@@ -390,21 +426,47 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
                   controller: _breachEmailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    hintText: 'Enter your email address...',
+                    hintText: 'e.g. john.doe@example.com',
                     prefixIcon: Icon(Icons.email_outlined),
                     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   ),
+                  onSubmitted: (_) => _checkDataBreach(),
                 ),
               ),
               const SizedBox(width: DesignTokens.spacingSm),
               ElevatedButton(
-                onPressed: _checkDataBreach,
+                onPressed: _isBreachChecking ? null : _checkDataBreach,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(100, 48),
                   backgroundColor: AppColors.softCoral,
                   foregroundColor: Colors.white,
                 ),
-                child: const Text('Check Leaks'),
+                child: _isBreachChecking
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Check Leaks'),
+              ),
+            ],
+          ),
+          const SizedBox(height: DesignTokens.spacingMd),
+          // Quick sample email test chips
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              const Text('Quick Test:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted)),
+              _SampleChip(
+                label: '⚠️ Test Leaked Account',
+                onTap: () {
+                  _breachEmailController.text = 'test.user@yahoo.com';
+                  _checkDataBreach();
+                },
+              ),
+              _SampleChip(
+                label: '🛡️ Test Clean Account',
+                onTap: () {
+                  _breachEmailController.text = 'secure.guardian@gmail.com';
+                  _checkDataBreach();
+                },
               ),
             ],
           ),
@@ -482,7 +544,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
     }
   }
 
-  void _analyzeUrlInput() {
+  void _analyzeUrlInput() async {
     final url = _urlController.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -491,43 +553,205 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
       return;
     }
 
-    final isPhishing = url.contains('login') || url.contains('bank') || url.contains('xyz');
+    setState(() => _isUrlScanning = true);
+    final service = ref.read(urlSafetyServiceProvider);
+    final result = await service.analyzeUrl(url);
 
-    showDialog(
+    if (!mounted) return;
+    setState(() => _isUrlScanning = false);
+
+    _showUrlResultModal(result);
+  }
+
+  void _showUrlResultModal(UrlAnalysisResult result) {
+    final isSafe = result.status == UrlSafetyStatus.safe;
+    final isSuspicious = result.status == UrlSafetyStatus.suspicious;
+    final isMalicious = result.status == UrlSafetyStatus.malicious;
+
+    final themeColor = isSafe
+        ? AppColors.emeraldGreen
+        : (isSuspicious ? AppColors.warningAmber : AppColors.errorRed);
+
+    final statusTitle = isSafe
+        ? 'Verified Safe Website'
+        : (isSuspicious ? 'Suspicious Link Warning' : 'Dangerous Phishing Threat Blocked');
+
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
-        title: Row(
-          children: [
-            Icon(
-              isPhishing ? Icons.warning_amber_rounded : Icons.verified_user_rounded,
-              color: isPhishing ? AppColors.errorRed : AppColors.emeraldGreen,
-              size: 26,
-            ),
-            const SizedBox(width: 8),
-            Text(isPhishing ? 'Phishing Risk Detected' : 'Safe Link Verified', style: const TextStyle(color: AppColors.onSurface)),
-          ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXxl)),
         ),
-        content: Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Target: $url', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted)),
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: themeColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                  ),
+                  child: Icon(
+                    isSafe ? Icons.verified_user_rounded : (isSuspicious ? Icons.warning_amber_rounded : Icons.gpp_bad_rounded),
+                    color: themeColor,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        statusTitle,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: themeColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        result.detectedCategory ?? (isSafe ? 'Legitimate' : 'High Risk'),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                // Risk score badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: themeColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                    border: Border.all(color: themeColor, width: 1.5),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '${result.riskScore}',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: themeColor),
+                      ),
+                      Text(
+                        'RISK SCORE',
+                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: themeColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceElevated,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+              ),
+              child: Text(
+                result.url,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Security Indicators & Findings:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+            ),
+            const SizedBox(height: 8),
+            ...result.reasons.map((reason) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        isSafe ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                        size: 16,
+                        color: isSafe ? AppColors.emeraldGreen : (isSuspicious ? AppColors.warningAmber : AppColors.errorRed),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          reason,
+                          style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted, height: 1.4),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: themeColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                border: Border.all(color: themeColor.withOpacity(0.2)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: themeColor, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      result.recommendation,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: themeColor, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
+                ),
+                if (isSafe) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.emeraldGreen, foregroundColor: Colors.white),
+                      child: const Text('Proceed'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
             const SizedBox(height: 12),
-            _ScanDetailRow(label: 'SSL Certificate', value: isPhishing ? 'Untrusted / Expired' : 'Valid 256-bit TLS'),
-            _ScanDetailRow(label: 'Domain Reputation', value: isPhishing ? 'Suspicious (<7 days old)' : 'Established Trusted Domain'),
-            _ScanDetailRow(label: 'AI Safety Rating', value: isPhishing ? '12/100 (HIGH RISK)' : '99/100 (SAFE)'),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
       ),
     );
   }
 
-  void _checkDataBreach() {
+  void _checkDataBreach() async {
     final email = _breachEmailController.text.trim();
     if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -536,25 +760,200 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
       return;
     }
 
-    showDialog(
+    setState(() => _isBreachChecking = true);
+    final breachService = ref.read(emailBreachServiceProvider);
+    final result = await breachService.checkEmailBreach(email);
+
+    if (!mounted) return;
+    setState(() => _isBreachChecking = false);
+
+    _showBreachResultModal(result);
+  }
+
+  void _showBreachResultModal(EmailBreachResult result) {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
-        title: const Row(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(DesignTokens.radiusXxl)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.shield_moon_rounded, color: AppColors.cyberBlue, size: 26),
-            SizedBox(width: 8),
-            Text('Dark Web Scan Complete', style: TextStyle(color: AppColors.onSurface)),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: (result.isCompromised ? AppColors.errorRed : AppColors.emeraldGreen).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                  ),
+                  child: Icon(
+                    result.isCompromised ? Icons.gpp_maybe_rounded : Icons.verified_user_rounded,
+                    color: result.isCompromised ? AppColors.errorRed : AppColors.emeraldGreen,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        result.isCompromised ? 'Compromised in Data Leaks!' : 'Email Address Clean',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: result.isCompromised ? AppColors.errorRed : AppColors.emeraldGreen,
+                        ),
+                      ),
+                      Text(
+                        result.email,
+                        style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (result.isCompromised) ...[
+              Text(
+                'Found in ${result.breaches.length} Data Breaches:',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+              ),
+              const SizedBox(height: 8),
+              ...result.breaches.map((breach) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated,
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                      border: Border.all(color: AppColors.outline, width: 0.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(breach.serviceName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.errorRed.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                              ),
+                              child: Text(breach.breachDate, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.errorRed)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(breach.description, style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted, height: 1.3)),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: breach.dataExposed.map((data) => Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.outline,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(data, style: const TextStyle(fontSize: 10, color: AppColors.onSurface)),
+                              )).toList(),
+                        ),
+                      ],
+                    ),
+                  )),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.emeraldGreen.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: AppColors.emeraldGreen, size: 24),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Zero password or credential leaks detected across indexed databases for this email address.',
+                        style: TextStyle(fontSize: 13, color: AppColors.onSurface, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            const Text(
+              'Security Advice:',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+            ),
+            const SizedBox(height: 6),
+            ...result.recommendations.map((rec) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.arrow_right_rounded, size: 16, color: AppColors.cyberBlue),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(rec, style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted))),
+                    ],
+                  ),
+                )),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.cyberBlue, foregroundColor: Colors.white),
+              child: const Text('Done'),
+            ),
           ],
         ),
-        content: Text(
-          'Email: $email\n\nResult: Clean! No password or credential leaks detected in known data breaches for this email address.',
-          style: const TextStyle(color: AppColors.onSurfaceMuted, height: 1.5),
+      ),
+    );
+  }
+}
+
+class _SampleChip extends StatelessWidget {
+  const _SampleChip({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+          border: Border.all(color: AppColors.outline, width: 0.5),
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-        ],
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+        ),
       ),
     );
   }
@@ -670,24 +1069,4 @@ class _ActivityItem {
   final String subtitle;
   final String time;
   final bool isRisk;
-}
-
-class _ScanDetailRow extends StatelessWidget {
-  const _ScanDetailRow({required this.label, required this.value});
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-        ],
-      ),
-    );
-  }
 }
