@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../screens/parent_dashboard.dart';
+import '../../home/providers/home_provider.dart';
 import '../../../shared/security/audit_logger.dart';
 
 final smsRiskScorerProvider = Provider<SmsRiskScorer>((ref) {

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 import 'design_tokens.dart';
 
-/// Guardian Plus Design System — Clean White Pro (Apple-inspired)
+/// Guardian Plus Design System — Dark Tech (v2)
+///
+/// Space Grotesk for headings (authority, tech), Inter for body (readable),
+/// per-role accent identities unified by a single dark base.
 class AppTheme {
   AppTheme._();
 
@@ -14,25 +18,37 @@ class AppTheme {
   static ThemeData _buildLight() {
     const colorScheme = ColorScheme(
       brightness: Brightness.light,
-      primary: AppColors.cyberBlue,           // iOS blue #0A84FF
-      onPrimary: Colors.white,
-      primaryContainer: Color(0xFFE8F4FF),
-      onPrimaryContainer: Color(0xFF0071E3),
-      secondary: AppColors.emeraldGreen,       // iOS green
-      onSecondary: Colors.white,
-      tertiary: AppColors.neonPurple,          // Purple for Parent Hub
+      primary: AppColors.emeraldGreen,
+      onPrimary: AppColors.onPrimary,
+      primaryContainer: Color(0xFFD1FAE5),
+      onPrimaryContainer: AppColors.emeraldGreenDark,
+      secondary: AppColors.cyberBlue,
+      onSecondary: AppColors.onPrimary,
+      secondaryContainer: Color(0xFFE0F2FE),
+      onSecondaryContainer: AppColors.cyberBlueDark,
+      tertiary: AppColors.neonPurple,
       onTertiary: Colors.white,
+      tertiaryContainer: Color(0xFFEDE9FE),
+      onTertiaryContainer: AppColors.neonPurpleDark,
       error: AppColors.errorRed,
       onError: Colors.white,
+      errorContainer: Color(0xFFFFE4E6),
+      onErrorContainer: AppColors.safetyPinkDark,
       surface: AppColors.surface,
       onSurface: AppColors.onSurface,
-      surfaceContainerHighest: AppColors.surfaceElevated,
+      surfaceContainerHighest: AppColors.surfaceHighest,
       outline: AppColors.outline,
       outlineVariant: AppColors.outlineVariant,
+      shadow: Color(0x14000000),
+      scrim: Color(0x66000000),
+      inverseSurface: Color(0xFF0F1E17),
+      onInverseSurface: AppColors.surface,
+      inversePrimary: AppColors.emeraldGreenLight,
     );
 
     return ThemeData(
       useMaterial3: true,
+      brightness: Brightness.light,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
       textTheme: _buildTextTheme(),
@@ -43,7 +59,7 @@ class AppTheme {
       textButtonTheme: _buildTextButtonTheme(),
       inputDecorationTheme: _buildInputTheme(),
       iconTheme: const IconThemeData(color: AppColors.onSurface, size: DesignTokens.iconMd),
-      dividerTheme: const DividerThemeData(color: AppColors.outline, thickness: 0.5),
+      dividerTheme: const DividerThemeData(color: AppColors.outline, thickness: 1.0),
       bottomNavigationBarTheme: _buildBottomNavTheme(),
       navigationBarTheme: _buildNavigationBarTheme(),
       snackBarTheme: _buildSnackBarTheme(),
@@ -52,385 +68,391 @@ class AppTheme {
       switchTheme: _buildSwitchTheme(),
       checkboxTheme: _buildCheckboxTheme(),
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.cyberBlue,
+        color: AppColors.emeraldGreen,
         linearMinHeight: 3,
       ),
       extensions: const [GuardianThemeExtension()],
     );
   }
 
-  // ── Typography (SF Pro feel via Inter) ────────────────────────────
+  // ── Typography ─────────────────────────────────────────────────────────
 
   static TextTheme _buildTextTheme() {
-    return GoogleFonts.interTextTheme(
-      const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 57,
-          fontWeight: FontWeight.w300,
-          letterSpacing: -0.5,
-          color: AppColors.onSurface,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 45,
-          fontWeight: FontWeight.w300,
-          letterSpacing: -0.25,
-          color: AppColors.onSurface,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.w400,
-          color: AppColors.onSurface,
-        ),
-        headlineLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.75,
-          color: AppColors.onSurface,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.5,
-          color: AppColors.onSurface,
-        ),
-        headlineSmall: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.25,
-          color: AppColors.onSurface,
-        ),
-        titleLarge: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-          color: AppColors.onSurface,
-        ),
-        titleMedium: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-          color: AppColors.onSurface,
-        ),
-        titleSmall: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-          color: AppColors.onSurface,
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0,
-          color: AppColors.onSurface,
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0,
-          color: AppColors.onSurfaceMuted,
-          height: 1.5,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0,
-          color: AppColors.onSurfaceMuted,
-          height: 1.4,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0,
-          color: AppColors.onSurface,
-        ),
-        labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.1,
-          color: AppColors.onSurface,
-        ),
-        labelSmall: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          letterSpacing: 0.2,
-          color: AppColors.onSurfaceMuted,
-        ),
+    // Space Grotesk for headings, Inter for body text — defined inline per style
+    return TextTheme(
+      // Display / Hero
+      displayLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 57, fontWeight: FontWeight.w700,
+        color: AppColors.onSurface, letterSpacing: -1.5, height: 1.1,
+      ),
+      displayMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 45, fontWeight: FontWeight.w700,
+        color: AppColors.onSurface, letterSpacing: -1.0, height: 1.1,
+      ),
+      displaySmall: GoogleFonts.spaceGrotesk(
+        fontSize: 36, fontWeight: FontWeight.w700,
+        color: AppColors.onSurface, letterSpacing: -0.5, height: 1.2,
+      ),
+      // Headlines — Space Grotesk
+      headlineLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 32, fontWeight: FontWeight.w700,
+        color: AppColors.onSurface, letterSpacing: -0.5, height: 1.2,
+      ),
+      headlineMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 28, fontWeight: FontWeight.w600,
+        color: AppColors.onSurface, letterSpacing: -0.25, height: 1.25,
+      ),
+      headlineSmall: GoogleFonts.spaceGrotesk(
+        fontSize: 24, fontWeight: FontWeight.w600,
+        color: AppColors.onSurface, height: 1.3,
+      ),
+      // Titles — Space Grotesk
+      titleLarge: GoogleFonts.spaceGrotesk(
+        fontSize: 22, fontWeight: FontWeight.w600,
+        color: AppColors.onSurface, letterSpacing: -0.15, height: 1.3,
+      ),
+      titleMedium: GoogleFonts.spaceGrotesk(
+        fontSize: 16, fontWeight: FontWeight.w600,
+        color: AppColors.onSurface, letterSpacing: 0.1, height: 1.4,
+      ),
+      titleSmall: GoogleFonts.spaceGrotesk(
+        fontSize: 14, fontWeight: FontWeight.w600,
+        color: AppColors.onSurface, letterSpacing: 0.1, height: 1.4,
+      ),
+      // Body — Inter
+      bodyLarge: GoogleFonts.inter(
+        fontSize: 16, fontWeight: FontWeight.w400,
+        color: AppColors.onSurface, height: 1.5,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        fontSize: 14, fontWeight: FontWeight.w400,
+        color: AppColors.onSurfaceMuted, height: 1.5,
+      ),
+      bodySmall: GoogleFonts.inter(
+        fontSize: 12, fontWeight: FontWeight.w400,
+        color: AppColors.onSurfaceMuted, height: 1.5,
+      ),
+      // Labels — Inter
+      labelLarge: GoogleFonts.inter(
+        fontSize: 14, fontWeight: FontWeight.w600,
+        color: AppColors.onSurface, letterSpacing: 0.1,
+      ),
+      labelMedium: GoogleFonts.inter(
+        fontSize: 12, fontWeight: FontWeight.w500,
+        color: AppColors.onSurfaceMuted, letterSpacing: 0.5,
+      ),
+      labelSmall: GoogleFonts.inter(
+        fontSize: 11, fontWeight: FontWeight.w500,
+        color: AppColors.onSurfaceSubtle, letterSpacing: 0.5,
       ),
     );
   }
 
-  // ── AppBar — clean white, no shadow ──────────────────────────────
+  // ── AppBar ─────────────────────────────────────────────────────────────
 
-  static AppBarTheme _buildAppBarTheme() => const AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.onSurface,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-        shadowColor: AppColors.outline,
-        centerTitle: false,
-        titleTextStyle: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: AppColors.onSurface,
-          letterSpacing: -0.2,
-        ),
-        iconTheme: IconThemeData(color: AppColors.onSurface, size: 22),
-      );
+  static AppBarTheme _buildAppBarTheme() => AppBarTheme(
+    backgroundColor: AppColors.surface,
+    foregroundColor: AppColors.onSurface,
+    elevation: 0,
+    scrolledUnderElevation: 1,
+    shadowColor: Colors.black.withValues(alpha: 0.5),
+    surfaceTintColor: Colors.transparent,
+    centerTitle: false,
+    titleTextStyle: GoogleFonts.spaceGrotesk(
+      fontSize: 18,
+      fontWeight: FontWeight.w700,
+      color: AppColors.onSurface,
+      letterSpacing: -0.2,
+    ),
+    systemOverlayStyle: const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: AppColors.navBarBackground,
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
 
-  // ── Card — flat, white, subtle border ─────────────────────────────
+  // ── Card ───────────────────────────────────────────────────────────────
 
   static CardThemeData _buildCardTheme() => CardThemeData(
-        color: AppColors.surface,
-        elevation: 0,
-        shadowColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-          side: const BorderSide(color: AppColors.outline, width: 0.5),
-        ),
-        clipBehavior: Clip.antiAlias,
-        margin: EdgeInsets.zero,
-      );
+    color: AppColors.surface,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
+      side: const BorderSide(color: AppColors.outline, width: 1.0),
+    ),
+    margin: EdgeInsets.zero,
+  );
 
-  // ── Elevated Button — Apple blue, rounded ─────────────────────────
+  // ── Buttons ────────────────────────────────────────────────────────────
 
   static ElevatedButtonThemeData _buildElevatedButtonTheme() =>
       ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.cyberBlue,
-          foregroundColor: Colors.white,
+          foregroundColor: const Color(0xFF000D12),
           elevation: 0,
           shadowColor: Colors.transparent,
-          padding: const EdgeInsets.symmetric(
-            horizontal: DesignTokens.spacingXl,
-            vertical: 14,
-          ),
+          minimumSize: const Size(double.infinity, DesignTokens.buttonHeightLg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
           ),
-          textStyle: const TextStyle(
+          textStyle: GoogleFonts.spaceGrotesk(
             fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
           ),
-          minimumSize: const Size(double.infinity, 50),
+          animationDuration: DesignTokens.animFast,
         ),
       );
-
-  // ── Outlined Button ───────────────────────────────────────────────
 
   static OutlinedButtonThemeData _buildOutlinedButtonTheme() =>
       OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.cyberBlue,
-          side: const BorderSide(color: AppColors.outline, width: 1),
-          padding: const EdgeInsets.symmetric(
-            horizontal: DesignTokens.spacingXl,
-            vertical: 14,
-          ),
+          minimumSize: const Size(double.infinity, DesignTokens.buttonHeightLg),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
           ),
-          textStyle: const TextStyle(
+          side: const BorderSide(color: AppColors.cyberBlue, width: 1.5),
+          textStyle: GoogleFonts.spaceGrotesk(
             fontSize: 16,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
-          minimumSize: const Size(double.infinity, 50),
         ),
       );
-
-  // ── Text Button ───────────────────────────────────────────────────
 
   static TextButtonThemeData _buildTextButtonTheme() =>
       TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.cyberBlue,
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       );
 
-  // ── Input — clean iOS-style ────────────────────────────────────────
+  // ── Input ──────────────────────────────────────────────────────────────
 
   static InputDecorationTheme _buildInputTheme() => InputDecorationTheme(
-        filled: true,
-        fillColor: AppColors.surfaceElevated,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: DesignTokens.spacingLg,
-          vertical: DesignTokens.spacingMd,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: const BorderSide(color: AppColors.cyberBlue, width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          borderSide: const BorderSide(color: AppColors.errorRed),
-        ),
-        hintStyle: const TextStyle(color: AppColors.onSurfaceSubtle, fontSize: 15),
-        labelStyle: const TextStyle(color: AppColors.onSurfaceMuted, fontSize: 14),
-        prefixIconColor: AppColors.onSurfaceMuted,
-        suffixIconColor: AppColors.onSurfaceMuted,
-      );
+    filled: true,
+    fillColor: AppColors.surfaceElevated,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+      borderSide: const BorderSide(color: AppColors.outline, width: 1.0),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+      borderSide: const BorderSide(color: AppColors.outline, width: 1.0),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+      borderSide: const BorderSide(color: AppColors.cyberBlue, width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+      borderSide: const BorderSide(color: AppColors.errorRed, width: 1.0),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+      borderSide: const BorderSide(color: AppColors.errorRed, width: 1.5),
+    ),
+    labelStyle: GoogleFonts.inter(
+      color: AppColors.onSurfaceMuted,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    ),
+    hintStyle: GoogleFonts.inter(
+      color: AppColors.onSurfaceSubtle,
+      fontSize: 14,
+    ),
+    errorStyle: GoogleFonts.inter(
+      color: AppColors.errorRed,
+      fontSize: 12,
+    ),
+    prefixIconColor: AppColors.onSurfaceMuted,
+    suffixIconColor: AppColors.onSurfaceMuted,
+  );
 
-  // ── Bottom Nav ────────────────────────────────────────────────────
+  // ── Bottom Navigation ──────────────────────────────────────────────────
 
   static BottomNavigationBarThemeData _buildBottomNavTheme() =>
       const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.navBarBackground,
         selectedItemColor: AppColors.cyberBlue,
         unselectedItemColor: AppColors.onSurfaceMuted,
-        type: BottomNavigationBarType.fixed,
         elevation: 0,
+        type: BottomNavigationBarType.fixed,
       );
 
   static NavigationBarThemeData _buildNavigationBarTheme() =>
       NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        indicatorColor: AppColors.cyberBlue.withOpacity(0.10),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const IconThemeData(color: AppColors.cyberBlue, size: 22);
-          }
-          return const IconThemeData(color: AppColors.onSurfaceMuted, size: 22);
-        }),
+        backgroundColor: AppColors.navBarBackground,
+        indicatorColor: AppColors.cyberBlue.withValues(alpha: 0.15),
+        surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.cyberBlue,
-            );
-          }
-          return const TextStyle(
+          final selected = states.contains(WidgetState.selected);
+          return GoogleFonts.inter(
             fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: AppColors.onSurfaceMuted,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? AppColors.cyberBlue : AppColors.onSurfaceMuted,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? AppColors.cyberBlue : AppColors.onSurfaceMuted,
+            size: 22,
           );
         }),
       );
 
-  // ── Snack Bar — charcoal pill ─────────────────────────────────────
+  // ── SnackBar ───────────────────────────────────────────────────────────
 
   static SnackBarThemeData _buildSnackBarTheme() => SnackBarThemeData(
-        backgroundColor: AppColors.onSurface,
-        contentTextStyle: const TextStyle(
-            color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DesignTokens.radiusMd)),
-        behavior: SnackBarBehavior.floating,
-        elevation: 4,
-      );
+    backgroundColor: AppColors.surfaceHighest,
+    contentTextStyle: GoogleFonts.inter(
+      color: AppColors.onSurface,
+      fontSize: 14,
+      fontWeight: FontWeight.w500,
+    ),
+    actionTextColor: AppColors.cyberBlue,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+    ),
+    behavior: SnackBarBehavior.floating,
+    elevation: 0,
+  );
 
-  // ── Dialog ───────────────────────────────────────────────────────
+  // ── Dialog ─────────────────────────────────────────────────────────────
 
   static DialogThemeData _buildDialogTheme() => DialogThemeData(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
-        elevation: 0,
-        shadowColor: Colors.transparent,
-      );
+    backgroundColor: AppColors.surface,
+    surfaceTintColor: Colors.transparent,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+      side: const BorderSide(color: AppColors.outline, width: 1.0),
+    ),
+    titleTextStyle: GoogleFonts.spaceGrotesk(
+      fontSize: 20,
+      fontWeight: FontWeight.w700,
+      color: AppColors.onSurface,
+    ),
+    contentTextStyle: GoogleFonts.inter(
+      fontSize: 14,
+      color: AppColors.onSurfaceMuted,
+      height: 1.5,
+    ),
+  );
 
-  // ── Chip ─────────────────────────────────────────────────────────
+  // ── Chip ───────────────────────────────────────────────────────────────
 
   static ChipThemeData _buildChipTheme() => ChipThemeData(
-        backgroundColor: AppColors.surfaceElevated,
-        selectedColor: AppColors.cyberBlue.withOpacity(0.12),
-        labelStyle: const TextStyle(
-            fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.onSurface),
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(DesignTokens.radiusFull)),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      );
+    backgroundColor: AppColors.surfaceElevated,
+    selectedColor: AppColors.cyberBlue.withValues(alpha: 0.2),
+    labelStyle: GoogleFonts.inter(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: AppColors.onSurfaceMuted,
+    ),
+    side: const BorderSide(color: AppColors.outline, width: 1.0),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+  );
 
-  // ── Switch — iOS style ────────────────────────────────────────────
+  // ── Switch ─────────────────────────────────────────────────────────────
 
   static SwitchThemeData _buildSwitchTheme() => SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          return Colors.white;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.cyberBlue;
-          return AppColors.outlineVariant;
-        }),
-        trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-      );
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return const Color(0xFF000D12);
+      return AppColors.onSurfaceMuted;
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return AppColors.cyberBlue;
+      return AppColors.surfaceHighest;
+    }),
+    trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+  );
 
-  // ── Checkbox ─────────────────────────────────────────────────────
+  // ── Checkbox ───────────────────────────────────────────────────────────
 
   static CheckboxThemeData _buildCheckboxTheme() => CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return AppColors.cyberBlue;
-          return Colors.transparent;
-        }),
-        side: const BorderSide(color: AppColors.outlineVariant, width: 1.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-      );
+    fillColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) return AppColors.cyberBlue;
+      return Colors.transparent;
+    }),
+    checkColor: WidgetStateProperty.all(const Color(0xFF000D12)),
+    side: const BorderSide(color: AppColors.outlineVariant, width: 1.5),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(4),
+    ),
+  );
 }
 
-// ── Theme Extension ───────────────────────────────────────────────────────
+// ── Theme Extension — per-role accent colors ───────────────────────────────
 
 @immutable
 class GuardianThemeExtension extends ThemeExtension<GuardianThemeExtension> {
   const GuardianThemeExtension({
-    this.glassBackground = AppColors.surface,
-    this.glassBorder = AppColors.outline,
-    this.riskCritical = AppColors.errorRed,
-    this.riskHigh = AppColors.warningOrange,
-    this.riskMedium = AppColors.warningAmber,
-    this.riskLow = AppColors.emeraldGreen,
-    this.riskNone = AppColors.onSurfaceMuted,
+    this.safetyAccent    = AppColors.safetyPink,
+    this.cyberAccent     = AppColors.cyberBlue,
+    this.familyAccent    = AppColors.neonPurple,
+    this.detectiveAccent = AppColors.detectiveTeal,
+    this.scamAccent      = AppColors.scamAmber,
+    this.safeColor       = AppColors.emeraldGreen,
+    this.dangerColor     = AppColors.errorRed,
+    this.warningColor    = AppColors.warningAmber,
   });
 
-  final Color glassBackground;
-  final Color glassBorder;
-  final Color riskCritical;
-  final Color riskHigh;
-  final Color riskMedium;
-  final Color riskLow;
-  final Color riskNone;
+  final Color safetyAccent;
+  final Color cyberAccent;
+  final Color familyAccent;
+  final Color detectiveAccent;
+  final Color scamAccent;
+  final Color safeColor;
+  final Color dangerColor;
+  final Color warningColor;
 
   @override
   GuardianThemeExtension copyWith({
-    Color? glassBackground,
-    Color? glassBorder,
-    Color? riskCritical,
-    Color? riskHigh,
-    Color? riskMedium,
-    Color? riskLow,
-    Color? riskNone,
+    Color? safetyAccent,
+    Color? cyberAccent,
+    Color? familyAccent,
+    Color? detectiveAccent,
+    Color? scamAccent,
+    Color? safeColor,
+    Color? dangerColor,
+    Color? warningColor,
   }) =>
       GuardianThemeExtension(
-        glassBackground: glassBackground ?? this.glassBackground,
-        glassBorder: glassBorder ?? this.glassBorder,
-        riskCritical: riskCritical ?? this.riskCritical,
-        riskHigh: riskHigh ?? this.riskHigh,
-        riskMedium: riskMedium ?? this.riskMedium,
-        riskLow: riskLow ?? this.riskLow,
-        riskNone: riskNone ?? this.riskNone,
+        safetyAccent:    safetyAccent    ?? this.safetyAccent,
+        cyberAccent:     cyberAccent     ?? this.cyberAccent,
+        familyAccent:    familyAccent    ?? this.familyAccent,
+        detectiveAccent: detectiveAccent ?? this.detectiveAccent,
+        scamAccent:      scamAccent      ?? this.scamAccent,
+        safeColor:       safeColor       ?? this.safeColor,
+        dangerColor:     dangerColor     ?? this.dangerColor,
+        warningColor:    warningColor    ?? this.warningColor,
       );
 
   @override
   GuardianThemeExtension lerp(GuardianThemeExtension? other, double t) {
     if (other == null) return this;
     return GuardianThemeExtension(
-      glassBackground: Color.lerp(glassBackground, other.glassBackground, t)!,
-      glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
-      riskCritical: Color.lerp(riskCritical, other.riskCritical, t)!,
-      riskHigh: Color.lerp(riskHigh, other.riskHigh, t)!,
-      riskMedium: Color.lerp(riskMedium, other.riskMedium, t)!,
-      riskLow: Color.lerp(riskLow, other.riskLow, t)!,
-      riskNone: Color.lerp(riskNone, other.riskNone, t)!,
+      safetyAccent:    Color.lerp(safetyAccent,    other.safetyAccent,    t)!,
+      cyberAccent:     Color.lerp(cyberAccent,     other.cyberAccent,     t)!,
+      familyAccent:    Color.lerp(familyAccent,    other.familyAccent,    t)!,
+      detectiveAccent: Color.lerp(detectiveAccent, other.detectiveAccent, t)!,
+      scamAccent:      Color.lerp(scamAccent,      other.scamAccent,      t)!,
+      safeColor:       Color.lerp(safeColor,       other.safeColor,       t)!,
+      dangerColor:     Color.lerp(dangerColor,     other.dangerColor,     t)!,
+      warningColor:    Color.lerp(warningColor,    other.warningColor,    t)!,
     );
   }
 }

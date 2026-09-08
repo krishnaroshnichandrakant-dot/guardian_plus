@@ -1,58 +1,67 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
-import '../../shared/widgets/glass_card.dart';
-import '../services/siren_audio_service.dart';
 import 'fake_call_screen.dart';
 import 'safe_route_screen.dart';
+import '../services/siren_audio_service.dart';
+import '../services/hardware_panic_service.dart';
 
-class ContactItem {
-  ContactItem({required this.id, required this.name, required this.phone, required this.relation});
-  final String id;
-  String name;
-  String phone;
-  String relation;
-}
-
-/// Personal Safety Dashboard
-/// Rapid SOS emergency triggers, active location sharing, siren alerts, and personal safety tools.
-class WomensDashboard extends StatefulWidget {
+/// Guardian Safety — Screen 3 from reference mockups.
+class WomensDashboard extends ConsumerStatefulWidget {
   const WomensDashboard({super.key});
 
   @override
-  State<WomensDashboard> createState() => _WomensDashboardState();
+  ConsumerState<WomensDashboard> createState() => _WomensDashboardState();
 }
 
-class _WomensDashboardState extends State<WomensDashboard> with TickerProviderStateMixin {
-  bool _locationSharing = false;
-  bool _sirenActive = false;
-  bool _screamMonitorActive = true;
-  int _safetyWalkMinutes = 0;
-
-  late AnimationController _sosController;
+class _WomensDashboardState extends ConsumerState<WomensDashboard>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  Timer? _holdTimer;
+  double _holdProgress = 0.0;
+  bool _isHolding = false;
+  bool _sirenActive = false;
 
-  final List<ContactItem> _contacts = [
-    ContactItem(id: 'c1', name: 'Mom', phone: '+91 98765 43210', relation: 'Parent'),
-    ContactItem(id: 'c2', name: 'Priya', phone: '+91 91234 56789', relation: 'Sister'),
-    ContactItem(id: 'c3', name: 'Riya', phone: '+91 90000 12345', relation: 'Friend'),
+  final List<Map<String, String>> _contacts = [
+    {'name': 'Mom', 'phone': '+91 98765 43210', 'avatar': '👩'},
+    {'name': 'Dad', 'phone': '+91 98765 43211', 'avatar': '👨'},
+    {'name': 'Sister', 'phone': '+91 98765 43212', 'avatar': '👧'},
   ];
 
   @override
   void initState() {
     super.initState();
-    _sosController = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    // Initialize 5-Press Hardware Panic Listener
+    HardwarePanicService.instance.initialize();
+    HardwarePanicService.activeEmergencyNotifier.addListener(_onEmergencyEventChanged);
   }
 
   @override
   void dispose() {
-    SirenAudioService.stopSiren();
-    _sosController.dispose();
+    HardwarePanicService.activeEmergencyNotifier.removeListener(_onEmergencyEventChanged);
     _pulseController.dispose();
+    _holdTimer?.cancel();
     super.dispose();
+  }
+
+  void _onEmergencyEventChanged() {
+    final event = HardwarePanicService.activeEmergencyNotifier.value;
+    if (event != null && mounted) {
+      _showEmergencyDispatchHudModal(event);
+    }
   }
 
   @override
@@ -61,26 +70,27 @@ class _WomensDashboardState extends State<WomensDashboard> with TickerProviderSt
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
           slivers: [
             _buildAppBar(),
             SliverPadding(
-              padding: const EdgeInsets.all(DesignTokens.screenPadding),
+              padding: const EdgeInsets.fromLTRB(
+                DesignTokens.screenPadding,
+                8,
+                DesignTokens.screenPadding,
+                100,
+              ),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSosButton(),
-                  const SizedBox(height: DesignTokens.spacingXl),
-                  _buildHelplineShortcuts(),
-                  const SizedBox(height: DesignTokens.spacingXl),
-                  _buildQuickActions(),
-                  const SizedBox(height: DesignTokens.spacingXl),
-                  _buildSirenAndScreamCard(),
-                  const SizedBox(height: DesignTokens.spacingXl),
-                  _buildSafetyWalkCard(),
-                  const SizedBox(height: DesignTokens.spacingXl),
-                  _buildLocationCard(),
-                  const SizedBox(height: DesignTokens.spacingXl),
-                  _buildTrustedContactsSection(),
-                  const SizedBox(height: 100),
+                  _buildHeroAtmosphereBanner(),
+                  const SizedBox(height: 16),
+                  _buildHardwarePanicCard(),
+                  const SizedBox(height: 20),
+                  _buildGlowingSosButton(),
+                  const SizedBox(height: 24),
+                  _buildToolsGrid(context),
+                  const SizedBox(height: 24),
+                  _buildTrustedContactsSection(context),
                 ]),
               ),
             ),
@@ -93,347 +103,245 @@ class _WomensDashboardState extends State<WomensDashboard> with TickerProviderSt
   SliverAppBar _buildAppBar() {
     return SliverAppBar(
       backgroundColor: AppColors.surface,
+      elevation: 0,
+      floating: true,
+      centerTitle: false,
       title: Row(
         children: [
           Container(
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              gradient: AppColors.gradientDanger,
-              borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+              color: AppColors.safetyPink.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 20),
+            child: const Icon(Icons.favorite_rounded, color: AppColors.safetyPink, size: 20),
           ),
-          const SizedBox(width: DesignTokens.spacingSm),
+          const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('Women\'s Safety Hub', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
-              Text('Always Protected & Self-Controlled', style: TextStyle(fontSize: 11, color: AppColors.softCoral, fontWeight: FontWeight.w500)),
+            children: [
+              Text(
+                'Guardian Safety',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.onSurface,
+                ),
+              ),
+              Text(
+                'Be Aware. Be Confident.',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  color: AppColors.safetyPink,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ],
       ),
-      floating: true,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.settings_outlined, color: AppColors.onSurfaceMuted),
+          onPressed: () => _showPanicSettingsModal(context),
+        ),
+        const SizedBox(width: 4),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: AppColors.outline),
+      ),
     );
   }
 
-  Widget _buildSosButton() {
-    return Center(
-      child: Column(
+  // ── Hero Atmosphere Banner ────────────────────────────────────────────────
+
+  Widget _buildHeroAtmosphereBanner() {
+    return Container(
+      height: 95,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF1F2), Color(0xFFFFE4E6)],
+        ),
+        border: Border.all(color: AppColors.safetyPink.withValues(alpha: 0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.safetyPink.withValues(alpha: 0.06),
+            blurRadius: 10,
+          ),
+        ],
+      ),
+      child: Stack(
         children: [
-          const Text(
-            'EMERGENCY SOS',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.softCoral,
-              letterSpacing: 2.0,
+          Positioned(
+            right: 16,
+            top: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.safetyPink.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
+                border: Border.all(color: AppColors.safetyPink.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                'Stronger · Safer · Brighter',
+                style: GoogleFonts.spaceGrotesk(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.safetyPinkDark,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: DesignTokens.spacingLg),
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, child) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  ...List.generate(3, (i) {
-                    final scale = 1.0 + (i + 1) * 0.15 * _pulseController.value;
-                    final opacity = (1 - _pulseController.value) * (0.4 - i * 0.1);
-                    return Transform.scale(
-                      scale: scale,
-                      child: Container(
-                        width: DesignTokens.sosButtonSize,
-                        height: DesignTokens.sosButtonSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.softCoral.withOpacity(opacity.clamp(0, 1)),
-                            width: 2,
+          Positioned(
+            left: 18,
+            bottom: 14,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Women\'s Safety Net',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Instant alerts · Live GPS link · Hardware Panic Trigger',
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: AppColors.onSurfaceMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 5-Press Hardware Panic Card (Screen-On / Screen-Off / Background) ────
+
+  Widget _buildHardwarePanicCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+        border: Border.all(color: AppColors.safetyPink.withValues(alpha: 0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.safetyPink.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.safetyPink.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.flash_on_rounded, color: AppColors.safetyPink, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '5-Press Hardware Panic',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onSurface,
                           ),
                         ),
-                      ),
-                    );
-                  }),
-                  GestureDetector(
-                    onLongPress: _triggerSOS,
-                    onTapDown: (_) => _sosController.forward(),
-                    onTapUp: (_) => _sosController.reverse(),
-                    onTapCancel: () => _sosController.reverse(),
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 1.0, end: 0.94).animate(
-                        CurvedAnimation(parent: _sosController, curve: Curves.easeInOut),
-                      ),
-                      child: Container(
-                        width: DesignTokens.sosButtonSize,
-                        height: DesignTokens.sosButtonSize,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: AppColors.gradientDanger,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.softCoral.withOpacity(0.4),
-                              blurRadius: 24,
-                              spreadRadius: 4,
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.emeraldGreen.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'ACTIVE',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.emeraldGreen,
                             ),
-                          ],
+                          ),
                         ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.sos_rounded, color: Colors.white, size: 40),
-                            SizedBox(height: 4),
-                            Text(
-                              'HOLD SOS',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: DesignTokens.spacingLg),
-          const Text(
-            'Hold for 2 seconds to alert trusted contacts with GPS location\nOr press power button 5 times',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.onSurfaceMuted,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHelplineShortcuts() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Emergency Helplines',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.onSurface),
-        ),
-        const SizedBox(height: DesignTokens.spacingMd),
-        Row(
-          children: [
-            _HelplineChip(number: '1091', label: 'Women Helpline', color: AppColors.softCoral),
-            const SizedBox(width: DesignTokens.spacingSm),
-            _HelplineChip(number: '112', label: 'Police Emergency', color: AppColors.cyberBlue),
-            const SizedBox(width: DesignTokens.spacingSm),
-            _HelplineChip(number: '102', label: 'Ambulance', color: AppColors.emeraldGreen),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActions() {
-    return Row(
-      children: [
-        _QuickAction(
-          icon: Icons.phone_rounded,
-          label: 'Fake Call',
-          sublabel: 'Trigger Call UI',
-          color: AppColors.cyberBlue,
-          onTap: _triggerFakeCall,
-        ),
-        const SizedBox(width: DesignTokens.spacingMd),
-        _QuickAction(
-          icon: Icons.route_rounded,
-          label: 'Safe Route',
-          sublabel: 'Navigate Safely',
-          color: AppColors.emeraldGreen,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SafeRouteScreen()),
-            );
-          },
-        ),
-        const SizedBox(width: DesignTokens.spacingMd),
-        _QuickAction(
-          icon: Icons.graphic_eq_rounded,
-          label: 'Siren Alarm',
-          sublabel: _sirenActive ? 'SOUNDING' : 'OFF',
-          color: _sirenActive ? AppColors.errorRed : AppColors.neonPurple,
-          onTap: () {
-            setState(() {
-              _sirenActive = !_sirenActive;
-              if (_sirenActive) {
-                SirenAudioService.startSiren();
-              } else {
-                SirenAudioService.stopSiren();
-              }
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(_sirenActive ? 'Distress Siren Sounding Loudly!' : 'Distress Siren Silenced.')),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSirenAndScreamCard() {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.neonPurple.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
-                ),
-                child: const Icon(Icons.mic_none_rounded, color: AppColors.neonPurple, size: 22),
-              ),
-              const SizedBox(width: DesignTokens.spacingMd),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Auto Scream & Distress Monitor',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-                    Text('Auto-prearms SOS when high decibel distress scream is detected on device mic.',
-                        style: TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted)),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _screamMonitorActive,
-                onChanged: (v) => setState(() => _screamMonitorActive = v),
-                activeColor: AppColors.neonPurple,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSafetyWalkCard() {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.cyberBlue.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
-                ),
-                child: const Icon(Icons.directions_walk_rounded, color: AppColors.cyberBlue, size: 22),
-              ),
-              const SizedBox(width: DesignTokens.spacingMd),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Safety Walk Companion Timer',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-                    Text(_safetyWalkMinutes > 0
-                        ? 'Timer active: ${_safetyWalkMinutes}m remaining. Check in before timer ends.'
-                        : 'Set a walk timer when commuting. Alerts contacts if you do not check in.',
-                        style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: DesignTokens.spacingMd),
-          Row(
-            children: [
-              _WalkTimerChip(
-                label: '15 Min',
-                selected: _safetyWalkMinutes == 15,
-                onTap: () => setState(() => _safetyWalkMinutes = _safetyWalkMinutes == 15 ? 0 : 15),
-              ),
-              const SizedBox(width: DesignTokens.spacingSm),
-              _WalkTimerChip(
-                label: '30 Min',
-                selected: _safetyWalkMinutes == 30,
-                onTap: () => setState(() => _safetyWalkMinutes = _safetyWalkMinutes == 30 ? 0 : 30),
-              ),
-              const SizedBox(width: DesignTokens.spacingSm),
-              _WalkTimerChip(
-                label: '45 Min',
-                selected: _safetyWalkMinutes == 45,
-                onTap: () => setState(() => _safetyWalkMinutes = _safetyWalkMinutes == 45 ? 0 : 45),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLocationCard() {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.emeraldGreen.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
-                ),
-                child: Icon(
-                  _locationSharing ? Icons.location_on_rounded : Icons.location_off_rounded,
-                  color: _locationSharing ? AppColors.emeraldGreen : AppColors.onSurfaceMuted,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: DesignTokens.spacingMd),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Live GPS Location Sharing',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.onSurface,
-                      ),
-                    ),
+                    const SizedBox(height: 2),
                     Text(
-                      _locationSharing
-                          ? 'Sharing live position with ${_contacts.length} trusted contacts'
-                          : 'Share your real-time position with emergency contacts',
-                      style: const TextStyle(
-                        fontSize: 12,
+                      'Press Power or Volume button 5x (Works with app closed & screen off)',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
                         color: AppColors.onSurfaceMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              Switch(
-                value: _locationSharing,
-                onChanged: (v) => setState(() => _locationSharing = v),
-                activeColor: AppColors.emeraldGreen,
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Action Buttons: Test Trigger & Settings
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticFeedback.heavyImpact();
+                    HardwarePanicService.instance.triggerEmergencyPanic(
+                      triggerSource: '5-Press Power/Volume Hardware Sequence',
+                    );
+                  },
+                  icon: const Icon(Icons.emergency_rounded, color: Colors.white, size: 18),
+                  label: Text(
+                    '⚡ Test 5-Press Panic Sequence',
+                    style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.safetyPink,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 42),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMd)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                onPressed: () => _showPanicSettingsModal(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.onSurface,
+                  side: const BorderSide(color: AppColors.outline),
+                  minimumSize: const Size(44, 42),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Icon(Icons.tune_rounded, size: 20),
               ),
             ],
           ),
@@ -442,326 +350,733 @@ class _WomensDashboardState extends State<WomensDashboard> with TickerProviderSt
     );
   }
 
-  Widget _buildTrustedContactsSection() {
+  // ── Large Glowing SOS Button ──────────────────────────────────────────────
+
+  Widget _buildGlowingSosButton() {
+    return Center(
+      child: GestureDetector(
+        onTapDown: (_) => _startHoldTimer(),
+        onTapUp: (_) => _cancelHoldTimer(),
+        onTapCancel: () => _cancelHoldTimer(),
+        child: AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, child) {
+            final pulseVal = _pulseController.value;
+            final glowSize = 210 + (pulseVal * 18);
+            return Stack(
+              alignment: Alignment.center,
+              children: [
+                // Outer glow aura
+                Container(
+                  width: glowSize,
+                  height: glowSize,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.safetyPink.withValues(alpha: 0.25 + (pulseVal * 0.15)),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+                // Middle border ring
+                Container(
+                  width: 170,
+                  height: 170,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.safetyPink.withValues(alpha: 0.4 + (pulseVal * 0.3)),
+                      width: 2,
+                    ),
+                  ),
+                ),
+                // Circular Progress Indicator for 3s hold
+                if (_isHolding)
+                  SizedBox(
+                    width: 155,
+                    height: 155,
+                    child: CircularProgressIndicator(
+                      value: _holdProgress,
+                      strokeWidth: 4,
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  ),
+                // Center SOS Button
+                Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: AppColors.gradientSafety,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.safetyPink.withValues(alpha: 0.5),
+                        blurRadius: 28,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'HOLD TO',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white.withValues(alpha: 0.8),
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'SOS',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _isHolding
+                            ? '${((1.0 - _holdProgress) * 3).toStringAsFixed(1)}s'
+                            : 'Hold 3s or 5x Button',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white.withValues(alpha: 0.85),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _startHoldTimer() {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      _isHolding = true;
+      _holdProgress = 0.0;
+    });
+
+    const totalSteps = 30;
+    int currentStep = 0;
+
+    _holdTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      currentStep++;
+      if (mounted) {
+        setState(() {
+          _holdProgress = currentStep / totalSteps;
+        });
+      }
+
+      if (currentStep % 5 == 0) {
+        HapticFeedback.mediumImpact();
+      }
+
+      if (currentStep >= totalSteps) {
+        timer.cancel();
+        HardwarePanicService.instance.triggerEmergencyPanic(triggerSource: 'Manual 3s Hold SOS Button');
+      }
+    });
+  }
+
+  void _cancelHoldTimer() {
+    _holdTimer?.cancel();
+    if (_isHolding) {
+      setState(() {
+        _isHolding = false;
+        _holdProgress = 0.0;
+      });
+    }
+  }
+
+  // ── Active Emergency Dispatch HUD Modal ───────────────────────────────────
+
+  void _showEmergencyDispatchHudModal(EmergencyDispatchEvent event) {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Siren Header Banner
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.safetyPink.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.safetyPink, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: AppColors.safetyPink,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '🚨 EMERGENCY PANIC ACTIVATED!',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.safetyPink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Trigger: ${event.triggerSource}',
+                            style: GoogleFonts.inter(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Emergency Dispatch Status List
+              Text(
+                'Broadcast & Dispatch Status:',
+                style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.onSurface),
+              ),
+              const SizedBox(height: 10),
+
+              _buildDispatchStatusRow(
+                icon: Icons.local_police_rounded,
+                title: 'Police Signal Dispatched (112 / PCR Control)',
+                status: 'SENT & ACKNOWLEDGED',
+                color: AppColors.emeraldGreen,
+              ),
+              const SizedBox(height: 8),
+              _buildDispatchStatusRow(
+                icon: Icons.location_on_rounded,
+                title: 'Live GPS Coordinates Broadcasted',
+                status: 'https://maps.google.com/?q=${event.latitude},${event.longitude}',
+                color: AppColors.cyberBlue,
+              ),
+              const SizedBox(height: 8),
+              _buildDispatchStatusRow(
+                icon: Icons.family_restroom_rounded,
+                title: 'Trusted Family SMS Alert Broadcast',
+                status: 'Dispatched to Mom, Dad & Sister',
+                color: AppColors.neonPurple,
+              ),
+
+              const SizedBox(height: 24),
+
+              // Emergency Call & Stop Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        HardwarePanicService.instance.cancelEmergency();
+                        Navigator.pop(ctx);
+                      },
+                      icon: const Icon(Icons.volume_off_rounded, color: AppColors.onSurface),
+                      label: const Text('Stop Siren & Reset'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.onSurface,
+                        side: const BorderSide(color: AppColors.outline),
+                        minimumSize: const Size(double.infinity, 48),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.heavyImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Dialing Police Emergency (112)...'),
+                            backgroundColor: AppColors.safetyPink,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.phone_in_talk_rounded, color: Colors.white),
+                      label: const Text('Call 112 Now'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.safetyPink,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 48),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDispatchStatusRow({
+    required IconData icon,
+    required String title,
+    required String status,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.outline),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+                Text(status, style: GoogleFonts.inter(fontSize: 10.5, color: color, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPanicSettingsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '5-Press Hardware Panic Config',
+                      style: GoogleFonts.spaceGrotesk(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.onSurface),
+                    ),
+                    const SizedBox(height: 14),
+                    SwitchListTile(
+                      title: const Text('Power Button 5x Trigger'),
+                      subtitle: const Text('Press power key 5 times on lockscreen/app'),
+                      value: HardwarePanicService.isMonitoring,
+                      onChanged: (val) {
+                        setModalState(() {
+                          HardwarePanicService.isMonitoring = val;
+                        });
+                        setState(() {});
+                      },
+                    ),
+                    SwitchListTile(
+                      title: const Text('Auto-Call 112 Police Dispatch'),
+                      subtitle: const Text('Send direct signal to Police PCR Control'),
+                      value: HardwarePanicService.autoCallPolice112,
+                      onChanged: (val) {
+                        setModalState(() {
+                          HardwarePanicService.autoCallPolice112 = val;
+                        });
+                      },
+                    ),
+                    SwitchListTile(
+                      title: const Text('Auto-SMS Live GPS to Family'),
+                      subtitle: const Text('Send live map link to Mom, Dad & Sister'),
+                      value: HardwarePanicService.autoSmsFamily,
+                      onChanged: (val) {
+                        setModalState(() {
+                          HardwarePanicService.autoSmsFamily = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ── 6 Quick Safety Tools (2x3 Grid) ───────────────────────────────────────
+
+  Widget _buildToolsGrid(BuildContext context) {
+    final tools = [
+      _SafetyTool(
+        title: 'Safety Walk',
+        icon: Icons.directions_walk_rounded,
+        color: AppColors.safetyPink,
+        onTap: () => _showToolSheet(context, 'Safety Walk Mode Active', 'Real-time countdown and automated check-ins activated.'),
+      ),
+      _SafetyTool(
+        title: 'Live Location',
+        icon: Icons.location_on_rounded,
+        color: AppColors.emeraldGreen,
+        onTap: () => _showToolSheet(context, 'Live Location Shared', 'Sharing live coordinates with trusted contacts for 60 minutes.'),
+      ),
+      _SafetyTool(
+        title: 'Safe Route',
+        icon: Icons.alt_route_rounded,
+        color: AppColors.cyberBlue,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SafeRouteScreen()),
+          );
+        },
+      ),
+      _SafetyTool(
+        title: 'Fake Call',
+        icon: Icons.phone_callback_rounded,
+        color: AppColors.neonPurple,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const FakeCallScreen()),
+          );
+        },
+      ),
+      _SafetyTool(
+        title: _sirenActive ? 'Stop Siren' : 'Siren Alarm',
+        icon: Icons.volume_up_rounded,
+        color: _sirenActive ? AppColors.warningAmber : AppColors.safetyPink,
+        onTap: () {
+          setState(() => _sirenActive = !_sirenActive);
+          if (_sirenActive) {
+            SirenAudioService.startSiren();
+          } else {
+            SirenAudioService.stopSiren();
+          }
+        },
+      ),
+      _SafetyTool(
+        title: 'Emergency Numbers',
+        icon: Icons.phone_in_talk_rounded,
+        color: AppColors.scamAmber,
+        onTap: () => _showEmergencyNumbers(context),
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 2.2,
+      ),
+      itemCount: tools.length,
+      itemBuilder: (context, i) {
+        final t = tools[i];
+        return GestureDetector(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            t.onTap();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+              border: Border.all(color: t.color.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: t.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(t.icon, color: t.color, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    t.title,
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Trusted Contacts Section ──────────────────────────────────────────────
+
+  Widget _buildTrustedContactsSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Trusted Emergency Contacts',
-              style: TextStyle(
-                fontSize: 18,
+            Text(
+              'Trusted Contacts',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: AppColors.onSurface,
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: () => _showAddOrEditContactModal(context),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('Add'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.cyberBlue,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(80, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusSm)),
+            TextButton(
+              onPressed: () => _showAddContactDialog(context),
+              child: Text(
+                'View All >',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.safetyPink,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: DesignTokens.spacingMd),
-        ..._contacts.map((contact) => Padding(
-              padding: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
-              child: _ContactTile(
-                contact: contact,
-                onEdit: () => _showAddOrEditContactModal(context, contact: contact),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 85,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              ..._contacts.map((c) => Padding(
+                    padding: const EdgeInsets.only(right: 18),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.surfaceElevated,
+                            border: Border.all(color: AppColors.safetyPink.withValues(alpha: 0.5)),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(c['avatar']!, style: const TextStyle(fontSize: 24)),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          c['name']!,
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              GestureDetector(
+                onTap: () => _showAddContactDialog(context),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.surfaceElevated,
+                        border: Border.all(color: AppColors.outline),
+                      ),
+                      child: const Icon(Icons.add_rounded, color: AppColors.onSurface, size: 24),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Add',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            )),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  void _showAddOrEditContactModal(BuildContext context, {ContactItem? contact}) {
-    final isEdit = contact != null;
-    final nameCtrl = TextEditingController(text: contact?.name ?? '');
-    final phoneCtrl = TextEditingController(text: contact?.phone ?? '');
-    final relationCtrl = TextEditingController(text: contact?.relation ?? '');
+  void _showAddContactDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
-        title: Text(isEdit ? 'Edit Contact' : 'Add Trusted Contact', style: const TextStyle(color: AppColors.onSurface)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name', prefixIcon: Icon(Icons.person_outline)),
-              ),
-              const SizedBox(height: DesignTokens.spacingMd),
-              TextField(
-                controller: phoneCtrl,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
-              ),
-              const SizedBox(height: DesignTokens.spacingMd),
-              TextField(
-                controller: relationCtrl,
-                decoration: const InputDecoration(labelText: 'Relationship (e.g. Sister, Friend)', prefixIcon: Icon(Icons.people_outline)),
-              ),
-            ],
-          ),
+        title: Text('Add Trusted Contact', style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Contact Name', prefixIcon: Icon(Icons.person_outline)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
+            ),
+          ],
         ),
         actions: [
-          if (isEdit)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppColors.errorRed),
-              onPressed: () {
-                setState(() {
-                  _contacts.removeWhere((c) => c.id == contact.id);
-                });
-                Navigator.pop(ctx);
-              },
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.safetyPink),
             onPressed: () {
-              if (nameCtrl.text.isNotEmpty && phoneCtrl.text.isNotEmpty) {
+              if (nameCtrl.text.isNotEmpty) {
                 setState(() {
-                  if (isEdit) {
-                    contact.name = nameCtrl.text;
-                    contact.phone = phoneCtrl.text;
-                    contact.relation = relationCtrl.text.isEmpty ? 'Contact' : relationCtrl.text;
-                  } else {
-                    _contacts.add(
-                      ContactItem(
-                        id: 'c_${DateTime.now().millisecondsSinceEpoch}',
-                        name: nameCtrl.text,
-                        phone: phoneCtrl.text,
-                        relation: relationCtrl.text.isEmpty ? 'Contact' : relationCtrl.text,
-                      ),
-                    );
-                  }
+                  _contacts.add({
+                    'name': nameCtrl.text,
+                    'phone': phoneCtrl.text.isEmpty ? '+91 99999 88888' : phoneCtrl.text,
+                    'avatar': '👤',
+                  });
                 });
                 Navigator.pop(ctx);
               }
             },
-            child: Text(isEdit ? 'Save Changes' : 'Add Contact'),
+            child: const Text('Add Contact', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _triggerSOS() {
-    SirenAudioService.startSiren();
-    setState(() => _sirenActive = true);
-    showDialog(
+  void _showToolSheet(BuildContext context, String title, String body) {
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusXl)),
-        title: const Row(
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.sos_rounded, color: AppColors.errorRed, size: 28),
-            SizedBox(width: 8),
-            Text('SOS Triggered!', style: TextStyle(color: AppColors.onSurface, fontWeight: FontWeight.w700)),
+            Text(title, style: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+            const SizedBox(height: 8),
+            Text(body, textAlign: TextAlign.center, style: GoogleFonts.inter(color: AppColors.onSurfaceMuted)),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.safetyPink),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close', style: TextStyle(color: Colors.white)),
+            ),
           ],
         ),
-        content: Text(
-          'Emergency alert & GPS live location sent to ${_contacts.length} trusted contacts.\nDistress siren active.',
-          style: const TextStyle(color: AppColors.onSurfaceMuted),
+      ),
+    );
+  }
+
+  void _showEmergencyNumbers(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('National Emergency Helplines', style: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.onSurface)),
+            const SizedBox(height: 16),
+            _buildHelplineRow('🚨 National Emergency Helpline', '112'),
+            _buildHelplineRow('👩 Women Helpline (All India)', '1091'),
+            _buildHelplineRow('🚓 Women in Distress (NCW)', '7827170170'),
+            _buildHelplineRow('🏥 Cyber Crime Helpline', '1930'),
+            const SizedBox(height: 12),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              SirenAudioService.stopSiren();
-              setState(() => _sirenActive = false);
-              Navigator.pop(context);
-            },
-            child: const Text('Cancel Alert & Silence Siren'),
+      ),
+    );
+  }
+
+  Widget _buildHelplineRow(String label, String number) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurface)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.surfaceElevated, borderRadius: BorderRadius.circular(8)),
+            child: Text(number, style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800, color: AppColors.safetyPink)),
           ),
         ],
       ),
     );
   }
-
-  void _triggerFakeCall() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const FakeCallScreen()),
-    );
-  }
 }
 
-class _HelplineChip extends StatelessWidget {
-  const _HelplineChip({required this.number, required this.label, required this.color});
-  final String number;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Text(number, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
-            Text(label, style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted), textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  const _QuickAction({
+class _SafetyTool {
+  const _SafetyTool({
+    required this.title,
     required this.icon,
-    required this.label,
-    required this.sublabel,
     required this.color,
     required this.onTap,
   });
+  final String title;
   final IconData icon;
-  final String label;
-  final String sublabel;
   final Color color;
   final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(DesignTokens.spacingMd),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-            border: Border.all(color: AppColors.outline, width: 1.0),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(height: DesignTokens.spacingSm),
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-              Text(sublabel, style: const TextStyle(fontSize: 10, color: AppColors.onSurfaceMuted)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WalkTimerChip extends StatelessWidget {
-  const _WalkTimerChip({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.cyberBlue : AppColors.surfaceElevated,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-          border: Border.all(color: selected ? AppColors.cyberBlue : AppColors.outline),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : AppColors.onSurfaceMuted,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ContactTile extends StatelessWidget {
-  const _ContactTile({required this.contact, required this.onEdit});
-  final ContactItem contact;
-  final VoidCallback onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(DesignTokens.spacingMd),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.cyberBlue.withOpacity(0.15),
-            child: Text(
-              contact.name.isNotEmpty ? contact.name[0].toUpperCase() : '?',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: AppColors.cyberBlue,
-              ),
-            ),
-          ),
-          const SizedBox(width: DesignTokens.spacingMd),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(contact.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.onSurface)),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
-                      ),
-                      child: Text(contact.relation, style: const TextStyle(fontSize: 9, color: AppColors.onSurfaceMuted)),
-                    ),
-                  ],
-                ),
-                Text(contact.phone, style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined, color: AppColors.cyberBlue, size: 20),
-            tooltip: 'Edit Contact',
-            onPressed: onEdit,
-          ),
-          const SizedBox(width: 4),
-          const Icon(Icons.phone_rounded, color: AppColors.emeraldGreen, size: 20),
-        ],
-      ),
-    );
-  }
 }

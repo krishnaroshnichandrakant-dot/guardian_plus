@@ -1,0 +1,136 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    function currentUid() {
+      return request.auth.uid;
+    }
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(currentUid())).data.role;
+    }
+    function isParent() {
+      return isAuthenticated() && getRole() == 'parent';
+    }
+    function isChild() {
+      return isAuthenticated() && getRole() == 'child';
+    }
+    function isIndividual() {
+      return isAuthenticated() && (getRole() == 'individual' || getRole() == 'womensSafety');
+    }
+    function belongsToFamily(familyId) {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(currentUid())).data.familyId == familyId;
+    }
+    function isOwnDocument(uid) {
+      return isAuthenticated() && currentUid() == uid;
+    }
+    // Prevents children from self-promoting role
+    function isNotElevatingRole(incomingRole) {
+      return !incomingRole.keys().hasAny(['role']) ||
+        (incomingRole.role == resource.data.role);
+    }
+
+    // ── Users collection ──────────────────────────────────────────────
+    match /users/{uid} {
+      // Read own profile
+      allow read: if isOwnDocument(uid);
+
+      // Create own profile on first sign-up (role assigned by client on creation)
+      allow create: if isOwnDocument(uid) &&
+        request.resource.data.keys().hasAll(['role', 'createdAt']) &&
+        request.resource.data.role in ['individual', 'parent', 'child', 'womensSafety'];
+
+      // Update own profile — but cannot change role or familyId without server validation
+      allow update: if isOwnDocument(uid) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'familyId']);
+
+      // Deletion only via Admin SDK (Cloud Function) — not client-side
+      allow delete: if false;
+    }
+
+    // ── Family policies (parent controls for child) ────────────────────
+    match /families/{familyId} {
+      // Read: any family member
+      allow read: if belongsToFamily(familyId);
+
+      // Write: only the parent/admin of the family
+      allow write: if isParent() && belongsToFamily(familyId);
+    }
+
+    match /families/{familyId}/policies/{childId} {
+      // Parent reads/writes their child's policy
+      allow read:  if isParent() && belongsToFamily(familyId);
+      allow write: if isParent() && belongsToFamily(familyId);
+
+      // Child can only read their own policy — cannot modify it
+      allow read:  if isChild() && isOwnDocument(childId);
+    }
+
+    // ── SOS Alerts ────────────────────────────────────────────────────
+    match /alerts/{alertId} {
+      // Anyone authenticated can create an alert for themselves
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderUid == currentUid();
+
+      // Alert can be read by the sender and their trusted contacts
+      allow read: if isAuthenticated() && (
+        resource.data.senderUid == currentUid() ||
+        resource.data.recipientUids.hasAny([currentUid()])
+      );
+
+      // Only the sender can update (e.g., mark as resolved)
+      allow update: if isAuthenticated() && resource.data.senderUid == currentUid();
+
+      // No client-side deletes — server only
+      allow delete: if false;
+    }
+
+    // ── Link Detective challenges (public read — curated admin-only writes) ──
+    match /linkChallenges/{challengeId} {
+      allow read: if isAuthenticated();
+      // Challenges only written by Admin SDK — never by client users
+      allow write: if false;
+    }
+
+    // ── Link Detective scores ─────────────────────────────────────────
+    match /linkDetectiveScores/{uid} {
+      // Users can read/write their own score
+      allow read:  if isOwnDocument(uid);
+      allow write: if isOwnDocument(uid);
+
+      // Parents can read their child's score
+      allow read: if isParent() && belongsToFamily(
+        get(/databases/$(database)/documents/users/$(uid)).data.familyId
+      );
+    }
+
+    // ── Link Detective leaderboard (opt-in, parent-gated) ─────────────
+    match /leaderboard/{uid} {
+      // Read is public (nickname only — no PII ever stored here)
+      allow read: if isAuthenticated();
+
+      // Write only if parent has enabled leaderboard participation
+      allow write: if isChild() && isOwnDocument(uid) &&
+        get(/databases/$(database)/documents/families/$(
+          get(/databases/$(database)/documents/users/$(uid)).data.familyId
+        )/policies/$(uid)).data.leaderboardEnabled == true;
+    }
+
+    // ── Audit logs (append-only, client-side; full read by owner only) ──
+    match /auditLogs/{uid}/entries/{entryId} {
+      allow read:   if isOwnDocument(uid);
+      allow create: if isOwnDocument(uid);
+      allow update: if false;  // Immutable — HMAC tamper-evident
+      allow delete: if false;
+    }
+
+    // ── Deny everything else ──────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

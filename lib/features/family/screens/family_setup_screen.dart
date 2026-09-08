@@ -340,7 +340,7 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
     if (mounted) {
       setState(() => _loading = false);
       if (success) {
-        context.go(Routes.cybersecurityDashboard);
+        context.go(Routes.guardianHome);
       } else {
         _showError('Invalid family code. Please check and try again.');
       }
@@ -419,7 +419,7 @@ class _FamilySetupScreenState extends ConsumerState<FamilySetupScreen>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.go(Routes.parentDashboard);
+              context.go(Routes.guardianFamily);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.neonPurple),
             child: const Text('Go to Parent Hub'),

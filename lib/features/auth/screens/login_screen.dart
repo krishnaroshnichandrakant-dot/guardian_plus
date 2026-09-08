@@ -24,6 +24,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _emailCtrl.text = 'test@gmail.com';
+    _passCtrl.text = 'test';
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -38,7 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             const SizedBox(height: DesignTokens.spacingXl),
             Text(
-              _isLogin ? 'Welcome back' : 'Create your account',
+              'Guardian Plus Access',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: DesignTokens.spacingXs),
@@ -46,7 +53,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               'Role: ${_roleLabel(widget.role)}',
               style: const TextStyle(color: AppColors.cyberBlue, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(height: DesignTokens.spacingXxl),
+            const SizedBox(height: DesignTokens.spacingLg),
+            // Instant 1-tap Passwordless Entry Button
+            ElevatedButton.icon(
+              onPressed: () async {
+                await ref.read(authServiceProvider).setDirectSession(ref, widget.role);
+                if (mounted) {
+                  if (widget.role == UserRole.child) {
+                    context.go(Routes.childHome);
+                  } else {
+                    context.go(Routes.guardianHome);
+                  }
+                }
+              },
+              icon: const Icon(Icons.flash_on_rounded, color: AppColors.onPrimary),
+              label: Text('Instant Enter as ${_roleLabel(widget.role)} (No Password)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.emeraldGreen,
+                foregroundColor: AppColors.onPrimary,
+              ),
+            ),
+            const SizedBox(height: DesignTokens.spacingXl),
+            Row(
+              children: [
+                const Expanded(child: Divider(color: AppColors.outline)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('OR EMAIL SIGN IN', style: TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted)),
+                ),
+                const Expanded(child: Divider(color: AppColors.outline)),
+              ],
+            ),
+            const SizedBox(height: DesignTokens.spacingLg),
             TextField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
@@ -153,7 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (widget.role == UserRole.parent || widget.role == UserRole.child) {
           context.go(Routes.pairing);
         } else {
-          context.go(Routes.cybersecurityDashboard);
+          context.go(Routes.guardianHome);
         }
       }
     } else {

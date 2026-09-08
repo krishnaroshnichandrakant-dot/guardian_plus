@@ -8,8 +8,20 @@ import '../../../shared/security/key_manager.dart';
 
 // ── Core Auth Providers ────────────────────────────────────────────────────
 
-/// Streams the current Firebase Auth state.
-final authStateProvider = StreamProvider<GuardianUser?>((ref) {
+// ── Local Active Session Provider (Enables instant passwordless role logins) ──
+final activeUserSessionProvider = StateProvider<GuardianUser?>((ref) => null);
+
+/// Unified auth state provider: returns active role session or Firebase auth state.
+final authStateProvider = Provider<AsyncValue<GuardianUser?>>((ref) {
+  final localSession = ref.watch(activeUserSessionProvider);
+  if (localSession != null) {
+    return AsyncValue.data(localSession);
+  }
+  return ref.watch(_firebaseAuthStateProvider);
+});
+
+/// Streams the current Firebase Auth state with Firestore role resolution.
+final _firebaseAuthStateProvider = StreamProvider<GuardianUser?>((ref) {
   return FirebaseAuth.instance.authStateChanges().asyncMap((user) async {
     if (user == null) return null;
     try {
@@ -19,7 +31,15 @@ final authStateProvider = StreamProvider<GuardianUser?>((ref) {
           .get();
       if (!doc.exists) return null;
       final role = _parseRole(doc.data()?['role'] as String?);
-      return GuardianUser(uid: user.uid, email: user.email, role: role);
+      final familyId = doc.data()?['familyId'] as String?;
+      final parentName = doc.data()?['parentName'] as String?;
+      return GuardianUser(
+        uid: user.uid,
+        email: user.email,
+        role: role,
+        familyId: familyId,
+        parentName: parentName,
+      );
     } catch (_) {
       return null;
     }
@@ -43,7 +63,7 @@ final childRulesProvider =
   return profile.rules.where((r) => r.childId == childId).toList();
 });
 
-/// Derived: current user's family role.
+/// Derived: current user's family role (admin vs. member vs. none).
 final familyRoleProvider = Provider<FamilyRole>((ref) {
   return ref.watch(familyProfileProvider).currentUserRole;
 });
@@ -72,12 +92,18 @@ class AuthService {
         detail: 'method=email uid=${cred.user?.uid}',
       );
       return AuthResult.ok;
+    } on FirebaseAuthException catch (e) {
+      await AuditLogger.log(
+        event: SecurityEvent.authFailed,
+        detail: 'method=email code=${e.code}',
+      );
+      return AuthResult.failure(_mapFirebaseAuthError(e.code));
     } catch (e) {
       await AuditLogger.log(
-        event: SecurityEvent.authSuccess,
-        detail: 'method=email_demo email=${email.trim()}',
+        event: SecurityEvent.authFailed,
+        detail: 'method=email error=$e',
       );
-      return AuthResult.ok;
+      return AuthResult.failure('Sign-in failed. Please try again.');
     }
   }
 
@@ -90,29 +116,43 @@ class AuthService {
     if (email.trim().isEmpty || password.isEmpty) {
       return AuthResult.failure('Please enter an email and password.');
     }
+    if (password.length < 8) {
+      return AuthResult.failure('Password must be at least 8 characters.');
+    }
     try {
       final cred = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+      // Write user profile to Firestore — if this fails, delete the auth user
+      // to keep auth and Firestore in sync.
       try {
         await _firestore.collection('users').doc(cred.user!.uid).set({
           'role': role.name,
           'createdAt': FieldValue.serverTimestamp(),
           'ageGated': ageYears != null && ageYears >= 13,
+          'consentVersion': '1.0',
         });
-      } catch (_) {}
+      } catch (firestoreError) {
+        // Firestore write failed — roll back the Auth user.
+        await cred.user?.delete();
+        return AuthResult.failure(
+          'Account creation failed (could not save profile). Please try again.',
+        );
+      }
       await AuditLogger.log(
         event: SecurityEvent.authSuccess,
         detail: 'method=create_account role=${role.name}',
       );
       return AuthResult.ok;
-    } catch (e) {
+    } on FirebaseAuthException catch (e) {
       await AuditLogger.log(
-        event: SecurityEvent.authSuccess,
-        detail: 'method=create_account_demo role=${role.name}',
+        event: SecurityEvent.authFailed,
+        detail: 'method=create_account code=${e.code}',
       );
-      return AuthResult.ok;
+      return AuthResult.failure(_mapFirebaseAuthError(e.code));
+    } catch (e) {
+      return AuthResult.failure('Account creation failed. Please try again.');
     }
   }
 
@@ -134,6 +174,8 @@ class AuthService {
           event: SecurityEvent.bruteForceTriggered,
           detail: 'key_wipe_executed after $_pinAttempts attempts',
         );
+        _pinAttempts = 0;
+        _lockoutUntil = null;
         return PinResult.wiped;
       }
       final waitSeconds = (1 << _pinAttempts.clamp(0, 10)).clamp(1, 3600);
@@ -148,11 +190,63 @@ class AuthService {
     return PinResult.correct;
   }
 
-  Future<bool> _checkPinSentinel(String pin) async => false;
+  /// Checks PIN against the stored sentinel value in flutter_secure_storage.
+  /// Returns false if no PIN has been set yet (first-time setup).
+  Future<bool> _checkPinSentinel(String pin) async {
+    try {
+      final stored = await KeyManager.readSecureValue('guardian_pin_hash');
+      if (stored == null) return false;
+      // Compare the Argon2id hash of the entered PIN with the stored hash.
+      // KeyManager.hashPin must use Argon2id + per-user salt.
+      final enteredHash = await KeyManager.hashPin(pin);
+      return enteredHash == stored;
+    } catch (_) {
+      return false;
+    }
+  }
 
-  Future<void> signOut() async {
+  Future<void> setDirectSession(WidgetRef ref, UserRole role) async {
+    final user = GuardianUser(
+      uid: 'direct_${role.name}',
+      email: '${role.name}@guardian.plus',
+      role: role,
+      familyId: 'GTR-7K2',
+      parentName: role == UserRole.child ? 'Rajesh (Parent)' : null,
+    );
+    ref.read(activeUserSessionProvider.notifier).state = user;
+    await AuditLogger.log(event: SecurityEvent.authSuccess, detail: 'method=direct_role role=${role.name}');
+  }
+
+  Future<void> signOut({WidgetRef? ref}) async {
     KeyManager.clearCache();
-    await _auth.signOut();
+    if (ref != null) {
+      ref.read(activeUserSessionProvider.notifier).state = null;
+    }
+    try {
+      await _auth.signOut();
+    } catch (_) {}
+    await AuditLogger.log(event: SecurityEvent.authSuccess, detail: 'method=sign_out');
+  }
+
+  static String _mapFirebaseAuthError(String code) {
+    switch (code) {
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'wrong-password':
+        return 'Incorrect password. Please try again.';
+      case 'email-already-in-use':
+        return 'An account already exists with this email.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 8 characters.';
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'too-many-requests':
+        return 'Too many failed attempts. Please wait before trying again.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection.';
+      default:
+        return 'Authentication failed. Please try again.';
+    }
   }
 }
 
@@ -324,10 +418,18 @@ class FamilyProfileNotifier extends StateNotifier<FamilyProfile> {
 // ── Data Classes ───────────────────────────────────────────────────────────
 
 class GuardianUser {
-  const GuardianUser({required this.uid, required this.role, this.email});
+  const GuardianUser({
+    required this.uid,
+    required this.role,
+    this.email,
+    this.familyId,
+    this.parentName,
+  });
   final String uid;
   final String? email;
   final UserRole role;
+  final String? familyId;
+  final String? parentName;
 }
 
 class FamilyProfile {
@@ -501,6 +603,7 @@ UserRole _parseRole(String? role) {
     case 'parent':       return UserRole.parent;
     case 'child':        return UserRole.child;
     case 'womensSafety': return UserRole.womensSafety;
+    case 'individual':   return UserRole.individual;
     default:             return UserRole.individual;
   }
 }

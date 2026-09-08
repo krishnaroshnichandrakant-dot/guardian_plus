@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../providers/auth_provider.dart';
 
 /// Consent screen — DPDPA / COPPA compliant age gate and disclosure.
 /// Must be shown before any monitoring is activated.
-class ConsentScreen extends StatefulWidget {
+class ConsentScreen extends ConsumerStatefulWidget {
   const ConsentScreen({super.key, required this.role});
   final UserRole role;
   @override
-  State<ConsentScreen> createState() => _ConsentScreenState();
+  ConsumerState<ConsentScreen> createState() => _ConsentScreenState();
 }
 
-class _ConsentScreenState extends State<ConsentScreen> {
+class _ConsentScreenState extends ConsumerState<ConsentScreen> {
   bool _consentGiven = false;
   bool _ageVerified = false;
   int? _age;
@@ -185,9 +187,18 @@ class _ConsentScreenState extends State<ConsentScreen> {
 
     return ElevatedButton(
       onPressed: canContinue
-          ? () => context.push(Routes.login, extra: widget.role)
+          ? () async {
+              await ref.read(authServiceProvider).setDirectSession(ref, widget.role);
+              if (mounted) {
+                if (widget.role == UserRole.child) {
+                  context.go(Routes.childHome);
+                } else {
+                  context.go(Routes.guardianHome);
+                }
+              }
+            }
           : null,
-      child: const Text('Continue to Account Setup'),
+      child: const Text('Agree & Enter Guardian Plus'),
     );
   }
 }

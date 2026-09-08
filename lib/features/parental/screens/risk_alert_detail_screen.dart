@@ -4,7 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
-import '../screens/parent_dashboard.dart';
+import '../../home/providers/home_provider.dart';
 
 class RiskAlertDetailScreen extends StatelessWidget {
   const RiskAlertDetailScreen({
@@ -203,7 +203,6 @@ class RiskAlertDetailScreen extends StatelessWidget {
 
   Color _riskColor(RiskLevel level) {
     switch (level) {
-      case RiskLevel.clean:
       case RiskLevel.low:
         return AppColors.emeraldGreen;
       case RiskLevel.medium:
@@ -217,8 +216,6 @@ class RiskAlertDetailScreen extends StatelessWidget {
 
   String _riskLabel(RiskLevel level) {
     switch (level) {
-      case RiskLevel.clean:
-        return 'Clean';
       case RiskLevel.low:
         return 'Low Risk';
       case RiskLevel.medium:

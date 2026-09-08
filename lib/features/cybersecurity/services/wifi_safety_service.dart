@@ -6,7 +6,12 @@ final wifiSafetyServiceProvider = Provider<WifiSafetyService>((ref) {
   return WifiSafetyService();
 });
 
-enum WifiSecurityStatus { secure, openUnencrypted, suspiciousCaptivePortal, unknown }
+enum WifiSecurityStatus {
+  secure,
+  openUnencrypted,
+  suspiciousCaptivePortal,
+  unknown,
+}
 
 class WifiSafetyResult {
   const WifiSafetyResult({
@@ -15,6 +20,7 @@ class WifiSafetyResult {
     required this.status,
     required this.isEncrypted,
     required this.reasons,
+    required this.platformLimitations,
   });
 
   final String? ssid;
@@ -22,12 +28,27 @@ class WifiSafetyResult {
   final WifiSecurityStatus status;
   final bool isEncrypted;
   final List<String> reasons;
+
+  /// Platform limitations that affect the accuracy of this result.
+  /// Always shown to the user — not hidden.
+  final List<String> platformLimitations;
 }
 
 class WifiSafetyService {
   final _wifiInfo = WifiInfo();
 
   Future<WifiSafetyResult> checkCurrentNetwork() async {
+    // ── Platform Limitations (always disclosed) ───────────────────────────
+    // Flutter apps cannot reliably detect ARP spoofing, rogue access points,
+    // or MITM attacks. These require low-level network access unavailable to
+    // sandboxed apps on both Android and iOS. We do NOT claim to detect these.
+    const platformLimitations = [
+      'ARP spoofing detection: NOT AVAILABLE — Flutter apps cannot access the ARP table. This check is omitted rather than faked.',
+      'Rogue AP / Evil Twin detection: NOT AVAILABLE — detecting fake hotspots requires OS-level Wi-Fi scanning APIs not accessible from Flutter.',
+      'WPA2 vs WPA3 confirmation: NOT AVAILABLE — the encryption type is not reliably exposed by Flutter Wi-Fi APIs. We infer from SSID name hints only.',
+      'Captive portal verification: PARTIAL — we can detect some portal-style SSIDs by name, but cannot confirm portal legitimacy.',
+    ];
+
     final connectivityResult = await Connectivity().checkConnectivity();
     if (!connectivityResult.contains(ConnectivityResult.wifi)) {
       return const WifiSafetyResult(
@@ -35,7 +56,8 @@ class WifiSafetyService {
         bssid: null,
         status: WifiSecurityStatus.unknown,
         isEncrypted: true,
-        reasons: ['Not connected to Wi-Fi'],
+        reasons: ['Not connected to Wi-Fi.'],
+        platformLimitations: platformLimitations,
       );
     }
 
@@ -47,22 +69,26 @@ class WifiSafetyService {
     } catch (_) {}
 
     final reasons = <String>[];
-    bool isEncrypted = true;
+    bool isEncrypted = true; // Assume encrypted unless name hints otherwise
 
-    // Check if open / unencrypted SSID name hints or gateway indicators
+    // ── SSID name-based heuristics (limited signal only) ─────────────────
+    // This is all that is available without OS-level APIs.
+    // Stated as an estimate, not a definitive check.
     final cleanSsid = (ssid ?? '').replaceAll('"', '').toLowerCase();
-    if (cleanSsid.contains('free') || cleanSsid.contains('guest') || cleanSsid.contains('public')) {
+    if (cleanSsid.contains('free') ||
+        cleanSsid.contains('guest') ||
+        cleanSsid.contains('public') ||
+        cleanSsid.contains('open')) {
       isEncrypted = false;
-      reasons.add('Public/Guest Wi-Fi network detected (likely unencrypted)');
+      reasons.add('SSID name suggests a public/guest network (likely open/unencrypted based on name only).');
+      reasons.add('Avoid transmitting sensitive data (passwords, banking) over public Wi-Fi — use a VPN.');
+    } else {
+      reasons.add('SSID name does not suggest an open network. Encryption type cannot be confirmed without OS APIs.');
     }
 
-    WifiSecurityStatus status = WifiSecurityStatus.secure;
-    if (!isEncrypted) {
-      status = WifiSecurityStatus.openUnencrypted;
-      reasons.add('Data transmitted over this network can be intercepted via Man-In-The-Middle (MITM)');
-    } else {
-      reasons.add('WPA2/WPA3 encryption active');
-    }
+    final status = isEncrypted
+        ? WifiSecurityStatus.secure
+        : WifiSecurityStatus.openUnencrypted;
 
     return WifiSafetyResult(
       ssid: ssid ?? 'Connected Wi-Fi',
@@ -70,6 +96,7 @@ class WifiSafetyService {
       status: status,
       isEncrypted: isEncrypted,
       reasons: reasons,
+      platformLimitations: platformLimitations,
     );
   }
 }

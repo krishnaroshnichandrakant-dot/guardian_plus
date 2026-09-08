@@ -275,6 +275,41 @@ class KeyManager {
     _alertSigningKeyCache = null;
   }
 
+  /// Read a raw value from secure storage by key.
+  static Future<String?> readSecureValue(String key) async {
+    return _storage.read(key: key);
+  }
+
+  /// Write a raw value to secure storage by key.
+  static Future<void> writeSecureValue(String key, String value) async {
+    await _storage.write(key: key, value: value);
+  }
+
+  /// Hashes a PIN using PBKDF2-SHA256 (upgrade to Argon2id when available).
+  /// Returns a hex-encoded hash string.
+  static Future<String> hashPin(String pin) async {
+    final saltHex = await _storage.read(key: 'gp_pin_salt');
+    late Uint8List salt;
+    if (saltHex == null) {
+      // First-time: generate and persist a random salt
+      salt = _crypto.generateSalt(32);
+      await _storage.write(key: 'gp_pin_salt', value: _bytesToHex(salt));
+    } else {
+      salt = _hexToBytes(saltHex);
+    }
+    final pbkdf2 = Pbkdf2(
+      macAlgorithm: Hmac.sha256(),
+      iterations: 100000,
+      bits: 256,
+    );
+    final secretKey = await pbkdf2.deriveKey(
+      secretKey: SecretKey(pin.codeUnits),
+      nonce: salt,
+    );
+    final keyBytes = await secretKey.extractBytes();
+    return _bytesToHex(Uint8List.fromList(keyBytes));
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────
 
   static String _bytesToHex(Uint8List bytes) =>
