@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../services/url_safety_service.dart';
+import '../../../shared/security/secure_http_client.dart';
 
 /// QR Scanner & CyberShield Opener — Screen 7 from reference mockups.
 class QrScannerScreen extends StatefulWidget {
@@ -21,7 +23,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   int _selectedTab = 0; // 0 = Live Camera, 1 = History, 2 = Gallery
   bool _isFlashOn = false;
   bool _isFrontCamera = false;
-  bool _isCameraInitialized = false;
+  final _urlSafetyService = UrlSafetyService(SecureHttpClient());
 
   late AnimationController _laserController;
   late MobileScannerController _scannerController;
@@ -636,12 +638,12 @@ class _QrScannerScreenState extends State<QrScannerScreen>
   void _processAndOpenQrSafely({
     required String rawPayload,
     required String source,
-  }) {
-    // Check for data exfiltration patterns
-    final isMaliciousApk = rawPayload.endsWith('.apk') || rawPayload.contains('disconnection');
-    final isPhishing = rawPayload.contains('claim') || rawPayload.contains('win-gift');
-    final isSafe = !isMaliciousApk && !isPhishing;
-    final score = isSafe ? 98 : 12;
+  }) async {
+    final result = await _urlSafetyService.analyzeUrl(rawPayload);
+    final isSafe = result.status == UrlSafetyStatus.safe && !result.isBannedInIndia;
+    final score = 100 - result.riskScore;
+
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -678,7 +680,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        isSafe ? 'Shield Verified · Safe to Open' : 'Data Exfiltration Alert!',
+                        isSafe ? 'Shield Verified · Safe to Open' : (result.isBannedInIndia ? '🚫 BANNED IN INDIA' : 'Data Exfiltration Alert!'),
                         style: GoogleFonts.spaceGrotesk(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -707,7 +709,7 @@ class _QrScannerScreenState extends State<QrScannerScreen>
               const SizedBox(height: 16),
 
               Text(
-                'Scanned Payload (Sanitized):',
+                'Scanned Payload ($source):',
                 style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted),
               ),
               const SizedBox(height: 6),
@@ -726,33 +728,38 @@ class _QrScannerScreenState extends State<QrScannerScreen>
               ),
               const SizedBox(height: 12),
 
-              // Security Diagnosis
+              // Security Diagnostics
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: (isSafe ? AppColors.emeraldGreen : AppColors.safetyPink).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      isSafe ? Icons.check_circle_rounded : Icons.block_rounded,
-                      color: isSafe ? AppColors.emeraldGreen : AppColors.safetyPink,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        isSafe
-                            ? 'Sanitized: Device telemetry, tokens & tracking params neutralized.'
-                            : 'BLOCKED: Attempted background download / credential capture!',
-                        style: GoogleFonts.inter(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
+                    Row(
+                      children: [
+                        Icon(
+                          isSafe ? Icons.check_circle_rounded : Icons.block_rounded,
                           color: isSafe ? AppColors.emeraldGreen : AppColors.safetyPink,
+                          size: 18,
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            result.detectedCategory ?? (isSafe ? 'Sanitized: Safe to open.' : 'THREAT BLOCKED'),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: isSafe ? AppColors.emeraldGreen : AppColors.safetyPink,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 6),
+                    ...result.reasons.map((r) => Text('• $r', style: GoogleFonts.inter(fontSize: 11, color: AppColors.onSurface))),
                   ],
                 ),
               ),
@@ -788,8 +795,8 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                     }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('🛡️ Data Exfiltration Blocked! Malicious payload isolated.'),
+                      SnackBar(
+                        content: Text('🛡️ Access Blocked! ${result.recommendation}'),
                         backgroundColor: AppColors.safetyPink,
                       ),
                     );
@@ -798,12 +805,12 @@ class _QrScannerScreenState extends State<QrScannerScreen>
                 icon: Icon(isSafe ? Icons.open_in_new_rounded : Icons.shield_outlined, color: Colors.white),
                 label: Text(
                   isSafe ? 'Click to Open Safely Now' : 'Block & Neutralize Threat',
-                  style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.w800),
+                  style: GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isSafe ? AppColors.emeraldGreen : AppColors.safetyPink,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 50),
+                  minimumSize: const Size(double.infinity, 48),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMd)),
                 ),
               ),

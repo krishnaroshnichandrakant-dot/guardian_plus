@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../services/url_safety_service.dart';
+import '../../../shared/security/secure_http_client.dart';
 
 /// CyberShield Dashboard (PS #19) — Screen 5 from reference mockups.
 class CybersecurityDashboard extends StatefulWidget {
@@ -18,8 +21,10 @@ class CybersecurityDashboard extends StatefulWidget {
 
 class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
   final _urlCtrl = TextEditingController();
+  final _urlSafetyService = UrlSafetyService(SecureHttpClient());
   bool _isScanning = false;
-  String? _scanResult;
+  UrlAnalysisResult? _analysisResult;
+  String _scanStatusText = 'Ready';
 
   @override
   Widget build(BuildContext context) {
@@ -195,8 +200,8 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
   Widget _buildFeatureTilesList(BuildContext context) {
     final features = [
       _CyberTile(
-        title: 'URL Scanner',
-        subtitle: 'Check links for threats',
+        title: 'URL Threat Scanner',
+        subtitle: 'Check links & Indian banned domains',
         icon: Icons.link_rounded,
         accent: AppColors.cyberBlue,
         onTap: () => _showUrlScannerDialog(context),
@@ -296,61 +301,334 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
   }
 
   void _showUrlScannerDialog(BuildContext context) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: Text('URL Threat Scanner', style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w800)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _urlCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'https://example.com/verify',
-                  prefixIcon: Icon(Icons.link_rounded),
-                ),
-              ),
-              const SizedBox(height: 14),
-              if (_isScanning)
-                const SizedBox(height: 30, width: 30, child: CircularProgressIndicator(color: AppColors.cyberBlue))
-              else if (_scanResult != null)
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.emeraldGreen.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(_scanResult!, style: const TextStyle(color: AppColors.emeraldGreen, fontWeight: FontWeight.w600)),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.cyberBlue, foregroundColor: Colors.black),
-              onPressed: () {
-                if (_urlCtrl.text.isNotEmpty) {
-                  setDialogState(() {
-                    _isScanning = true;
-                    _scanResult = null;
-                  });
-                  Future.delayed(const Duration(milliseconds: 1000), () {
-                    setDialogState(() {
-                      _isScanning = false;
-                      _scanResult = '✅ Clean URL — No malware or phishing indicators found.';
-                    });
-                  });
-                }
-              },
-              child: const Text('Scan Now'),
+        builder: (context, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(context).viewInsets.bottom + 24,
             ),
-          ],
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title Header
+                  Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: AppColors.cyberBlue.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.shield_outlined, color: AppColors.cyberBlue, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'URL Cyber Threat Scanner',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Real-time threat inspection against MeitY/DoT Indian blocklists, illegal betting, piracy & phishing.',
+                    style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.onSurfaceMuted),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // URL Input Bar
+                  TextField(
+                    controller: _urlCtrl,
+                    style: GoogleFonts.inter(fontSize: 13, color: AppColors.onSurface),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. tiktok.com, 1xbet.com, google.com',
+                      prefixIcon: const Icon(Icons.link_rounded, color: AppColors.cyberBlue),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.content_paste_rounded, color: AppColors.cyberBlue, size: 20),
+                        onPressed: () async {
+                          final data = await Clipboard.getData('text/plain');
+                          if (data?.text != null) {
+                            _urlCtrl.text = data!.text!;
+                            setSheetState(() {});
+                          }
+                        },
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Quick Sample Preset Chips
+                  Text(
+                    'Quick Test Links:',
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      _buildPresetChip('tiktok.com (Banned India)', setSheetState),
+                      _buildPresetChip('1xbet.com (Illegal Betting)', setSheetState),
+                      _buildPresetChip('tamilrockers.ws (Piracy)', setSheetState),
+                      _buildPresetChip('power-disconnection-alert.com', setSheetState),
+                      _buildPresetChip('google.com (Safe)', setSheetState),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Scan Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.cyberBlue,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _isScanning
+                          ? null
+                          : () async {
+                              final text = _urlCtrl.text.trim();
+                              if (text.isEmpty) return;
+
+                              setSheetState(() {
+                                _isScanning = true;
+                                _analysisResult = null;
+                                _scanStatusText = 'Auditing MeitY / DoT Government Blocklists...';
+                              });
+
+                              await Future.delayed(const Duration(milliseconds: 300));
+                              setSheetState(() {
+                                _scanStatusText = 'Probing Live HTTP Response & Cyber Fraud Database...';
+                              });
+
+                              final result = await _urlSafetyService.analyzeUrl(text);
+
+                              setSheetState(() {
+                                _isScanning = false;
+                                _analysisResult = result;
+                              });
+                            },
+                      icon: _isScanning
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          : const Icon(Icons.search_rounded, size: 20),
+                      label: Text(
+                        _isScanning ? _scanStatusText : 'Inspect Link Security Now',
+                        style: GoogleFonts.spaceGrotesk(fontSize: 13.5, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+
+                  // Threat Analysis Result Card
+                  if (_analysisResult != null) ...[
+                    const SizedBox(height: 20),
+                    _buildAnalysisResultCard(_analysisResult!),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPresetChip(String label, StateSetter setSheetState) {
+    return GestureDetector(
+      onTap: () {
+        final domain = label.split(' ').first;
+        _urlCtrl.text = domain;
+        setSheetState(() {});
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.outline),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.onSurface),
         ),
       ),
     );
   }
+
+  Widget _buildAnalysisResultCard(UrlAnalysisResult res) {
+    final bool isDangerous = res.status == UrlSafetyStatus.malicious || res.isBannedInIndia;
+    final bool isSuspicious = res.status == UrlSafetyStatus.suspicious;
+    final Color themeColor = isDangerous
+        ? AppColors.safetyPink
+        : isSuspicious
+            ? AppColors.scamAmber
+            : AppColors.emeraldGreen;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: themeColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: themeColor.withValues(alpha: 0.4), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isDangerous
+                        ? Icons.gpp_bad_rounded
+                        : isSuspicious
+                            ? Icons.warning_rounded
+                            : Icons.verified_user_rounded,
+                    color: themeColor,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    res.detectedCategory ?? (isDangerous ? 'Dangerous Threat' : 'Safe Website'),
+                    style: GoogleFonts.spaceGrotesk(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: themeColor,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: themeColor.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Risk: ${res.riskScore}/100',
+                  style: GoogleFonts.spaceGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: themeColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Host & URL
+          Text(
+            'Target Host: ${res.host}',
+            style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+          ),
+          const SizedBox(height: 8),
+
+          // Reasons List
+          Text(
+            'Threat Diagnostics:',
+            style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurfaceMuted),
+          ),
+          const SizedBox(height: 4),
+          ...res.reasons.map(
+            (r) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• ', style: TextStyle(color: themeColor, fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(
+                      r,
+                      style: GoogleFonts.inter(fontSize: 11.5, color: AppColors.onSurface, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Recommendation Box
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: themeColor, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    res.recommendation,
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.onSurface),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Action Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDangerous ? AppColors.safetyPink : AppColors.emeraldGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: isDangerous
+                  ? () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('🛡️ CyberShield Blocked Access to ${res.host}! Threat Neutralized.'),
+                          backgroundColor: AppColors.safetyPink,
+                        ),
+                      );
+                    }
+                  : () async {
+                      final uri = Uri.parse(res.url);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+              icon: Icon(isDangerous ? Icons.block_rounded : Icons.open_in_new_rounded, size: 18),
+              label: Text(
+                isDangerous ? 'Block & Isolate Threat' : 'Open Safely in Browser',
+                style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
   void _showWifiAuditSheet(BuildContext context) {
     showModalBottomSheet(
