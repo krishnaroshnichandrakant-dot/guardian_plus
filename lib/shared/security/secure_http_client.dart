@@ -18,6 +18,7 @@ import 'audit_logger.dart';
 ///   • Fast request timeouts to prevent connection hangs
 ///   • Disallowed automatic redirects on sensitive endpoints
 /// ══════════════════════════════════════════════════════════════════════════
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final secureHttpClientProvider = Provider<SecureHttpClient>((ref) {
@@ -28,6 +29,7 @@ class SecureHttpClient {
   SecureHttpClient._();
   static SecureHttpClient? _instance;
   static SecureHttpClient get instance => _instance ??= SecureHttpClient._();
+  factory SecureHttpClient() => instance;
 
   late final Dio _dio;
   bool _initialized = false;
@@ -73,14 +75,20 @@ class SecureHttpClient {
     );
 
     // ── TLS 1.3 enforcement + certificate pinning ─────────────────
-    (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
-      final client = HttpClient();
-      client.badCertificateCallback = (cert, host, port) {
-        // Verify against pinned fingerprints
-        return _verifyCertificate(cert, host);
-      };
-      return client;
-    };
+    if (!kIsWeb) {
+      try {
+        final adapter = _dio.httpClientAdapter;
+        if (adapter is IOHttpClientAdapter) {
+          adapter.createHttpClient = () {
+            final client = HttpClient();
+            client.badCertificateCallback = (cert, host, port) {
+              return _verifyCertificate(cert, host);
+            };
+            return client;
+          };
+        }
+      } catch (_) {}
+    }
 
     // ── Request interceptor: strip sensitive headers from logs ─────
     _dio.interceptors.add(
@@ -109,7 +117,7 @@ class SecureHttpClient {
 
   // ── Certificate verification ──────────────────────────────────────
 
-  bool _verifyCertificate(X509Certificate cert, String host) {
+  bool _verifyCertificate(dynamic cert, String host) {
     // Find matching pinned fingerprints for this host
     final matchingEntry = _pinnedFingerprints.entries.firstWhere(
       (entry) => host.endsWith(entry.key),

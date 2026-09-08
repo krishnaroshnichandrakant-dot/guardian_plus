@@ -627,8 +627,6 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> {
       ),
     );
   }
-}
-
 
   void _showWifiAuditSheet(BuildContext context) {
     showModalBottomSheet(
