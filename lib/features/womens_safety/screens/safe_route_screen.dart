@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -8,81 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/design_tokens.dart';
+import '../services/real_routing_service.dart';
 
-/// Real Safe Route Navigation Model
-class SafeRouteInfo {
-  final String id;
-  final String name;
-  final String viaRoad;
-  final double distanceKm;
-  final int durationMins;
-  final int safetyScore; // 0 to 100
-  final String ratingLabel;
-  final Color color;
-  final List<String> safetyFeatures;
-  final List<String> turnByTurnInstructions;
-  final List<SafeHavenPoint> safeHavens;
-
-  const SafeRouteInfo({
-    required this.id,
-    required this.name,
-    required this.viaRoad,
-    required this.distanceKm,
-    required this.durationMins,
-    required this.safetyScore,
-    required this.ratingLabel,
-    required this.color,
-    required this.safetyFeatures,
-    required this.turnByTurnInstructions,
-    required this.safeHavens,
-  });
-}
-
-class SafeHavenPoint {
-  final String name;
-  final String type; // 'Police', 'Pharmacy', 'Metro', 'Fuel'
-  final IconData icon;
-  final Color color;
-  final double distanceMeters;
-
-  const SafeHavenPoint({
-    required this.name,
-    required this.type,
-    required this.icon,
-    required this.color,
-    required this.distanceMeters,
-  });
-}
-
-class IndianLocationPreset {
-  final String name;
-  final String city;
-  final double lat;
-  final double lng;
-  final String type;
-
-  const IndianLocationPreset({
-    required this.name,
-    required this.city,
-    required this.lat,
-    required this.lng,
-    required this.type,
-  });
-}
-
-/// Real Indian Locations Dataset (NCR, Bengaluru, Mumbai, Pune, Hyderabad)
-const List<IndianLocationPreset> kIndianPopularLocations = [
-  IndianLocationPreset(name: 'Metro Station, Sector 18', city: 'Noida / NCR', lat: 28.5708, lng: 77.3261, type: 'Metro'),
-  IndianLocationPreset(name: 'Connaught Place (Inner Circle)', city: 'Delhi NCR', lat: 28.6315, lng: 77.2167, type: 'Commercial'),
-  IndianLocationPreset(name: 'Cyber City, Phase 2', city: 'Gurugram NCR', lat: 28.4950, lng: 77.0895, type: 'IT Park'),
-  IndianLocationPreset(name: 'MG Road Metro Station', city: 'Bengaluru', lat: 12.9756, lng: 77.6066, type: 'Metro'),
-  IndianLocationPreset(name: 'Indiranagar 100ft Road', city: 'Bengaluru', lat: 12.9784, lng: 77.6408, type: 'Commercial'),
-  IndianLocationPreset(name: 'Bandra Kurla Complex (BKC)', city: 'Mumbai', lat: 19.0657, lng: 72.8686, type: 'Business District'),
-  IndianLocationPreset(name: 'HITECH City Metro Station', city: 'Hyderabad', lat: 17.4435, lng: 78.3772, type: 'Metro'),
-  IndianLocationPreset(name: 'FC Road (Fergusson College Rd)', city: 'Pune', lat: 18.5204, lng: 73.8415, type: 'University Hub'),
-];
-
-/// Safe Route (PS #22) — Real Indian Data & Live Navigation Engine.
+/// Safe Route (PS #22) — Real OpenStreetMap & OSRM Engine.
 class SafeRouteScreen extends StatefulWidget {
   const SafeRouteScreen({super.key});
 
@@ -92,31 +19,31 @@ class SafeRouteScreen extends StatefulWidget {
 
 class _SafeRouteScreenState extends State<SafeRouteScreen>
     with SingleTickerProviderStateMixin {
-  int _selectedRouteIndex = 0; // 0 = Route A (Safe), 1 = Route B (Main), 2 = Route C (Shortest)
+  int _selectedRouteIndex = 0; // 0 = Route A (Safe), 1 = Route B (Closest/Fastest), 2 = Route C (Shortcut)
   String _selectedFilter = 'Recommended';
   bool _isNavigating = false;
   bool _isLoadingGps = false;
+  bool _isCalculatingRoute = false;
   int _navStep = 0;
   Timer? _navTimer;
 
-  // Real GPS Coordinates
-  double _originLat = 28.5355;
-  double _originLng = 77.3910;
+  // Real GPS Coordinates (Default: Noida Sector 62 -> Sector 18 Metro)
+  double _originLat = 28.6280;
+  double _originLng = 77.3649;
   double _destLat = 28.5708;
   double _destLng = 77.3261;
 
   final TextEditingController _originCtrl =
-      TextEditingController(text: 'My Location (Noida Sector 62)');
+      TextEditingController(text: 'Sector 62, Noida, UP');
   final TextEditingController _destCtrl =
-      TextEditingController(text: 'Metro Station, Sector 18');
+      TextEditingController(text: 'Metro Station, Sector 18, Noida');
 
-  List<SafeRouteInfo> _calculatedRoutes = [];
+  List<RealRouteData> _calculatedRoutes = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchLiveGpsPosition();
-    _recalculateRoutes();
+    _fetchLiveGpsAndAddress();
   }
 
   @override
@@ -127,149 +54,76 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
     super.dispose();
   }
 
-  /// Get real user location via Geolocator
-  Future<void> _fetchLiveGpsPosition() async {
+  /// Get real user location & real reverse-geocoded address
+  Future<void> _fetchLiveGpsAndAddress() async {
     setState(() => _isLoadingGps = true);
     try {
-      final permission = await Geolocator.checkPermission();
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
+
       final pos = await Geolocator.getCurrentPosition(
         timeLimit: const Duration(seconds: 4),
       );
+
+      _originLat = pos.latitude;
+      _originLng = pos.longitude;
+
+      // Reverse geocode to exact real address
+      final address = await RealRoutingService.getRealAddressFromCoords(
+        _originLat,
+        _originLng,
+      );
+
       if (mounted) {
         setState(() {
-          _originLat = pos.latitude;
-          _originLng = pos.longitude;
-          _originCtrl.text = 'Current GPS (${pos.latitude.toStringAsFixed(3)}, ${pos.longitude.toStringAsFixed(3)})';
+          _originCtrl.text = address;
           _isLoadingGps = false;
         });
-        _recalculateRoutes();
+        await _recalculateRealRoutes();
       }
     } catch (_) {
       if (mounted) {
         setState(() => _isLoadingGps = false);
+        _recalculateRealRoutes();
       }
     }
   }
 
-  /// Calculate real distance & generate 3 safety-ranked Indian routes
-  void _recalculateRoutes() {
-    final distKm = _calculateHaversineDistance(_originLat, _originLng, _destLat, _destLng);
-    final baseTime = (distKm * 3.8).round().clamp(5, 120);
+  /// Calculate real road distance & duration using Open Source Routing Machine (OSRM)
+  Future<void> _recalculateRealRoutes() async {
+    if (_isCalculatingRoute) return;
+    setState(() => _isCalculatingRoute = true);
 
-    final destName = _destCtrl.text;
+    try {
+      final routes = await RealRoutingService.fetchRealRoutes(
+        originLat: _originLat,
+        originLng: _originLng,
+        destLat: _destLat,
+        destLng: _destLng,
+        destName: _destCtrl.text,
+      );
 
-    _calculatedRoutes = [
-      SafeRouteInfo(
-        id: 'route_a',
-        name: 'Route A (Safety Corridor)',
-        viaRoad: 'via Main Arterial & CCTV Grid',
-        distanceKm: double.parse((distKm * 1.12).toStringAsFixed(1)),
-        durationMins: baseTime + 4,
-        safetyScore: 92,
-        ratingLabel: 'Well-Lit · 98% CCTV',
-        color: AppColors.emeraldGreen,
-        safetyFeatures: [
-          'Full Smart LED Street Lighting',
-          'Active PCR Police Beat Patrols',
-          '3 En-Route 24/7 Safe Havens',
-          'Continuous CCTV Network',
-        ],
-        turnByTurnInstructions: [
-          'Head East on Smart City Highway (98% CCTV covered)',
-          'In 400m, keep left past Police Beat Booth #7 (Safe Haven)',
-          'Turn right onto Main Boulevard (100% Street Lit)',
-          'Pass 24/7 Apollo Pharmacy (Emergency Safe Station)',
-          'Arriving safely at $destName in 2 mins',
-        ],
-        safeHavens: [
-          const SafeHavenPoint(
-            name: 'PCR Police Beat Booth #7',
-            type: 'Police',
-            icon: Icons.local_police_rounded,
-            color: AppColors.cyberBlue,
-            distanceMeters: 450,
-          ),
-          const SafeHavenPoint(
-            name: 'Apollo 24/7 Pharmacy Hub',
-            type: 'Pharmacy',
-            icon: Icons.local_pharmacy_rounded,
-            color: AppColors.emeraldGreen,
-            distanceMeters: 1200,
-          ),
-        ],
-      ),
-      SafeRouteInfo(
-        id: 'route_b',
-        name: 'Route B (Main Commercial)',
-        viaRoad: 'via Ring Road & Metro Line',
-        distanceKm: double.parse(distKm.toStringAsFixed(1)),
-        durationMins: baseTime,
-        safetyScore: 68,
-        ratingLabel: 'Moderate Lighting',
-        color: AppColors.warningAmber,
-        safetyFeatures: [
-          'Commercial Highway Traffic',
-          'Partial CCTV Coverage',
-          '1 En-Route Metro Security Gate',
-        ],
-        turnByTurnInstructions: [
-          'Head straight onto Main Ring Road (Commercial Traffic)',
-          'In 800m, pass Metro Station Gate #1 Security Check',
-          'Continue on Service Lane past Petrol Station',
-          'Arrive at $destName in 1 min',
-        ],
-        safeHavens: [
-          const SafeHavenPoint(
-            name: 'Metro Security Control Gate',
-            type: 'Metro',
-            icon: Icons.subway_rounded,
-            color: AppColors.cyberBlue,
-            distanceMeters: 800,
-          ),
-        ],
-      ),
-      SafeRouteInfo(
-        id: 'route_c',
-        name: 'Route C (Unlit Shortcut)',
-        viaRoad: 'via Sector Alley Cut',
-        distanceKm: double.parse((distKm * 0.88).toStringAsFixed(1)),
-        durationMins: (baseTime * 0.8).round().clamp(4, 90),
-        safetyScore: 42,
-        ratingLabel: 'Higher Risk · Unlit',
-        color: AppColors.safetyPink,
-        safetyFeatures: [
-          '⚠️ Isolated unlit residential sector cut',
-          '⚠️ Low camera density (12%)',
-          '⚠️ No active PCR patrol reported',
-        ],
-        turnByTurnInstructions: [
-          'Turn into Sector Service Alley (Dimly Lit)',
-          '⚠️ Caution: Low visibility for next 600m',
-          'Emerge onto Main Road near $destName',
-        ],
-        safeHavens: [],
-      ),
-    ];
+      if (mounted) {
+        setState(() {
+          _calculatedRoutes = routes;
+          _isCalculatingRoute = false;
+          _selectedRouteIndex = 0;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isCalculatingRoute = false);
+      }
+    }
   }
-
-  double _calculateHaversineDistance(double lat1, double lon1, double lat2, double lon2) {
-    const r = 6371.0; // Earth radius in KM
-    final dLat = _toRadians(lat2 - lat1);
-    final dLon = _toRadians(lon2 - lon1);
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRadians(lat1)) * cos(_toRadians(lat2)) * sin(dLon / 2) * sin(dLon / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return r * c;
-  }
-
-  double _toRadians(double degree) => degree * (pi / 180.0);
 
   void _toggleNavigation() {
     HapticFeedback.heavyImpact();
-    final activeRoute = _calculatedRoutes[_selectedRouteIndex];
+    if (_calculatedRoutes.isEmpty) return;
+
+    final activeRoute = _calculatedRoutes[_selectedRouteIndex.clamp(0, _calculatedRoutes.length - 1)];
 
     setState(() {
       _isNavigating = !_isNavigating;
@@ -281,16 +135,16 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
       _navTimer = Timer.periodic(const Duration(seconds: 4), (t) {
         if (!mounted) return;
         setState(() {
-          _navStep = (_navStep + 1) % activeRoute.turnByTurnInstructions.length;
+          _navStep = (_navStep + 1) % activeRoute.turnInstructions.length;
         });
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '🧭 Live Safe Navigation Active on ${activeRoute.name} (${activeRoute.safetyScore}% Safe). Emergency Shield Active.',
+            '🧭 Real GPS Navigation Active on ${activeRoute.name} (${activeRoute.distanceKm} km · ${activeRoute.durationMins} mins). Guardian SOS Active.',
           ),
-          backgroundColor: activeRoute.color,
+          backgroundColor: activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -298,7 +152,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
       _navTimer?.cancel();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Safe Navigation Session Closed.'),
+          content: Text('Safe Navigation Session Ended.'),
           backgroundColor: AppColors.surfaceHighest,
         ),
       );
@@ -332,7 +186,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
               ),
             ),
             Text(
-              'Real Indian Safety Intel & CCTV Grid',
+              'Real OSRM Distance & OpenStreetMap Intel',
               style: GoogleFonts.inter(
                 fontSize: 11,
                 color: AppColors.emeraldGreen,
@@ -343,7 +197,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.swap_vert_rounded, color: AppColors.emeraldGreen),
-            tooltip: 'Swap Origin & Destination',
+            tooltip: 'Swap Locations',
             onPressed: () {
               HapticFeedback.selectionClick();
               final tempText = _originCtrl.text;
@@ -357,7 +211,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
               _destLat = tempLat;
               _destLng = tempLng;
 
-              _recalculateRoutes();
+              _recalculateRealRoutes();
               setState(() {});
             },
           ),
@@ -383,9 +237,18 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     const SizedBox(height: 12),
                     _buildInteractiveMapCanvas(activeRoute),
                     const SizedBox(height: 18),
-                    _buildRouteComparisonCards(),
-                    const SizedBox(height: 18),
-                    if (activeRoute != null) _buildSafeHavenPills(activeRoute),
+                    if (_isCalculatingRoute)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: CircularProgressIndicator(color: AppColors.emeraldGreen),
+                        ),
+                      )
+                    else ...[
+                      _buildRouteComparisonCards(),
+                      const SizedBox(height: 18),
+                      if (activeRoute != null) _buildSafeHavenPills(activeRoute),
+                    ],
                   ],
                 ),
               ),
@@ -397,7 +260,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
     );
   }
 
-  // ── Location Input Box with Live GPS & Indian Places Search ───────────────
+  // ── Location Input Box with Live GPS & Nominatim Search ───────────────────
 
   Widget _buildLocationInputCard() {
     return Container(
@@ -434,18 +297,21 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     border: InputBorder.none,
-                    hintText: 'Starting point in India',
+                    hintText: 'Starting location in India',
                   ),
+                  onSubmitted: (val) {
+                    _searchAndSetOrigin(val);
+                  },
                 ),
               ),
               _isLoadingGps
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : IconButton(
                       icon: const Icon(Icons.my_location_rounded, size: 18, color: AppColors.emeraldGreen),
-                      tooltip: 'Get Live GPS',
+                      tooltip: 'Detect Exact GPS Location',
                       onPressed: () {
                         HapticFeedback.selectionClick();
-                        _fetchLiveGpsPosition();
+                        _fetchLiveGpsAndAddress();
                       },
                     ),
             ],
@@ -479,15 +345,18 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                     border: InputBorder.none,
-                    hintText: 'Destination landmark',
+                    hintText: 'Destination address / landmark',
                   ),
+                  onSubmitted: (val) {
+                    _searchAndSetDestination(val);
+                  },
                 ),
               ),
               IconButton(
                 icon: const Icon(Icons.search_rounded, size: 18, color: AppColors.onSurfaceMuted),
-                tooltip: 'Search Indian Cities/Places',
+                tooltip: 'Search Real OpenStreetMap Places',
                 onPressed: () {
-                  _showIndianPlacesSearchModal(context);
+                  _showRealSearchModal(context);
                 },
               ),
             ],
@@ -497,10 +366,36 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
     );
   }
 
+  Future<void> _searchAndSetOrigin(String query) async {
+    if (query.trim().isEmpty) return;
+    final results = await RealRoutingService.searchRealLocations(query);
+    if (results.isNotEmpty && mounted) {
+      setState(() {
+        _originCtrl.text = results[0].displayName;
+        _originLat = results[0].lat;
+        _originLng = results[0].lng;
+      });
+      _recalculateRealRoutes();
+    }
+  }
+
+  Future<void> _searchAndSetDestination(String query) async {
+    if (query.trim().isEmpty) return;
+    final results = await RealRoutingService.searchRealLocations(query);
+    if (results.isNotEmpty && mounted) {
+      setState(() {
+        _destCtrl.text = results[0].displayName;
+        _destLat = results[0].lat;
+        _destLng = results[0].lng;
+      });
+      _recalculateRealRoutes();
+    }
+  }
+
   // ── Filter Pills ──────────────────────────────────────────────────────────
 
   Widget _buildFilterPills() {
-    final filters = ['Recommended', 'Maximum CCTV', 'Well-Lit Only', 'Faster'];
+    final filters = ['Recommended', 'Closest & Fastest', 'Maximum CCTV', 'Well-Lit Only'];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -511,7 +406,14 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
             child: GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
-                setState(() => _selectedFilter = f);
+                setState(() {
+                  _selectedFilter = f;
+                  if (f == 'Closest & Fastest') {
+                    _selectedRouteIndex = 1;
+                  } else if (f == 'Maximum CCTV' || f == 'Recommended') {
+                    _selectedRouteIndex = 0;
+                  }
+                });
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -540,19 +442,21 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
 
   // ── Live Turn-by-Turn Navigation HUD ──────────────────────────────────────
 
-  Widget _buildLiveNavigationCard(SafeRouteInfo activeRoute) {
-    final instructions = activeRoute.turnByTurnInstructions;
-    final currentInstruction = instructions[_navStep.clamp(0, instructions.length - 1)];
+  Widget _buildLiveNavigationCard(RealRouteData activeRoute) {
+    final instructions = activeRoute.turnInstructions;
+    final currentInstruction = instructions.isEmpty
+        ? 'Head towards destination'
+        : instructions[_navStep.clamp(0, instructions.length - 1)].instruction;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-        border: Border.all(color: activeRoute.color, width: 1.5),
+        border: Border.all(color: activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: activeRoute.color.withValues(alpha: 0.15),
+            color: (activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber).withValues(alpha: 0.15),
             blurRadius: 16,
           ),
         ],
@@ -563,10 +467,10 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: activeRoute.color.withValues(alpha: 0.15),
+              color: (activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber).withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.turn_right_rounded, color: activeRoute.color, size: 26),
+            child: Icon(Icons.navigation_rounded, color: activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -579,17 +483,17 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: activeRoute.color,
+                        color: activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'LIVE NAVIGATION ACTIVE (${activeRoute.safetyScore}% SAFE)',
+                      'REAL GPS NAVIGATION (${activeRoute.distanceKm} KM · ${activeRoute.durationMins} MINS)',
                       style: GoogleFonts.spaceGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: activeRoute.color,
+                        color: activeRoute.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber,
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -612,11 +516,11 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
     ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.1, end: 0);
   }
 
-  // ── Interactive Cartographic Map Canvas ───────────────────────────────────
+  // ── Real Interactive OpenStreetMap Map Canvas ──────────────────────────────
 
-  Widget _buildInteractiveMapCanvas(SafeRouteInfo? activeRoute) {
+  Widget _buildInteractiveMapCanvas(RealRouteData? activeRoute) {
     return Container(
-      height: 250,
+      height: 260,
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFFE5EEE9),
@@ -634,81 +538,81 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
         borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
         child: Stack(
           children: [
-            // Route Polyline Custom Painter
+            // Map Tile Canvas with Real OpenStreetMap Data
             CustomPaint(
-              size: const Size(double.infinity, 250),
-              painter: _MapRoutePainter(selectedRoute: _selectedRouteIndex, isNavigating: _isNavigating),
+              size: const Size(double.infinity, 260),
+              painter: _RealOsmMapPainter(
+                originLat: _originLat,
+                originLng: _originLng,
+                destLat: _destLat,
+                destLng: _destLng,
+                selectedRoute: _selectedRouteIndex,
+                isNavigating: _isNavigating,
+                routeData: activeRoute,
+              ),
             ),
 
-            // Safe Haven Point Pins on Map
-            if (activeRoute != null && activeRoute.safeHavens.isNotEmpty) ...[
-              Positioned(
-                left: 110,
-                top: 70,
-                child: _buildSafeHavenMapPin(activeRoute.safeHavens[0].name, activeRoute.safeHavens[0].icon, activeRoute.safeHavens[0].color),
-              ),
-              if (activeRoute.safeHavens.length > 1)
-                Positioned(
-                  right: 120,
-                  top: 130,
-                  child: _buildSafeHavenMapPin(activeRoute.safeHavens[1].name, activeRoute.safeHavens[1].icon, activeRoute.safeHavens[1].color),
-                ),
-            ],
-
-            // Origin & Destination Pins
+            // Origin Pin
             Positioned(
               left: 28,
-              top: 30,
-              child: _buildPin(Icons.my_location_rounded, AppColors.emeraldGreen, 'Start'),
+              top: 35,
+              child: _buildPin(Icons.my_location_rounded, AppColors.emeraldGreen, 'GPS Start'),
             ),
+
+            // Destination Pin
             Positioned(
               right: 32,
               bottom: 35,
-              child: _buildPin(Icons.location_on_rounded, AppColors.safetyPink, 'End'),
+              child: _buildPin(Icons.location_on_rounded, AppColors.safetyPink, 'Destination'),
             ),
 
-            // Floating Route Tags on Map
-            if (_calculatedRoutes.length >= 3) ...[
+            // En-Route Safe Haven Pins
+            if (activeRoute != null && activeRoute.safeHavens.isNotEmpty) ...[
               Positioned(
-                left: 80,
-                top: 45,
+                left: 110,
+                top: 75,
+                child: _buildSafeHavenMapPin(activeRoute.safeHavens[0].name, Icons.local_police_rounded, AppColors.cyberBlue),
+              ),
+              if (activeRoute.safeHavens.length > 1)
+                Positioned(
+                  right: 110,
+                  top: 135,
+                  child: _buildSafeHavenMapPin(activeRoute.safeHavens[1].name, Icons.local_pharmacy_rounded, AppColors.emeraldGreen),
+                ),
+            ],
+
+            // Floating Route Score Tags on Map
+            if (_calculatedRoutes.length >= 2) ...[
+              Positioned(
+                left: 75,
+                top: 40,
                 child: _buildRouteMapTag(
-                  'Route A · ${_calculatedRoutes[0].safetyScore}% Safe',
+                  'Route A · ${_calculatedRoutes[0].distanceKm} km (${_calculatedRoutes[0].safetyScore}% Safe)',
                   AppColors.emeraldGreen,
                   isSelected: _selectedRouteIndex == 0,
                   onTap: () => setState(() => _selectedRouteIndex = 0),
                 ),
               ),
               Positioned(
-                right: 70,
+                right: 50,
                 top: 95,
                 child: _buildRouteMapTag(
-                  'Route B · ${_calculatedRoutes[1].safetyScore}% Safe',
+                  'Route B · ${_calculatedRoutes[1].distanceKm} km (Closest Path)',
                   AppColors.warningAmber,
                   isSelected: _selectedRouteIndex == 1,
                   onTap: () => setState(() => _selectedRouteIndex = 1),
                 ),
               ),
-              Positioned(
-                right: 30,
-                bottom: 95,
-                child: _buildRouteMapTag(
-                  'Route C · ${_calculatedRoutes[2].safetyScore}% Risk',
-                  AppColors.safetyPink,
-                  isSelected: _selectedRouteIndex == 2,
-                  onTap: () => setState(() => _selectedRouteIndex = 2),
-                ),
-              ),
             ],
 
-            // Recenter / GPS Button
+            // Recenter Live GPS Button
             Positioned(
               right: 12,
               top: 12,
               child: GestureDetector(
                 onTap: () {
                   HapticFeedback.selectionClick();
-                  _fetchLiveGpsPosition();
+                  _fetchLiveGpsAndAddress();
                 },
                 child: Container(
                   width: 36,
@@ -756,40 +660,29 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
   }
 
   Widget _buildSafeHavenMapPin(String name, IconData icon, Color color) {
-    return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('En-Route Safe Haven: $name (Verified 24/7)'),
-            backgroundColor: color,
-            duration: const Duration(seconds: 2),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 4,
           ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 4,
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(
-              name,
-              style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.onSurface),
-            ),
-          ],
-        ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            name,
+            style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+          ),
+        ],
       ),
     );
   }
@@ -823,100 +716,109 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
     );
   }
 
-  // ── 3 Real Indian Route Comparison Cards ──────────────────────────────────
+  // ── 3 Real Route Comparison Cards ─────────────────────────────────────────
 
   Widget _buildRouteComparisonCards() {
-    return Row(
-      children: _calculatedRoutes.asMap().entries.map((entry) {
-        final i = entry.key;
-        final r = entry.value;
-        final isSel = _selectedRouteIndex == i;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: i < 2 ? 8 : 0),
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _selectedRouteIndex = i);
-              },
-              child: AnimatedContainer(
-                duration: DesignTokens.animFast,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isSel ? r.color.withValues(alpha: 0.1) : AppColors.surface,
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-                  border: Border.all(
-                    color: isSel ? r.color : AppColors.outline,
-                    width: isSel ? 2 : 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isSel ? r.color.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      r.name,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${r.durationMins} min · ${r.distanceKm} km',
-                      style: GoogleFonts.inter(
-                        fontSize: 10.5,
-                        color: AppColors.onSurfaceMuted,
+    return Column(
+      children: [
+        Row(
+          children: _calculatedRoutes.asMap().entries.map((entry) {
+            final i = entry.key;
+            final r = entry.value;
+            final isSel = _selectedRouteIndex == i;
+            final isClosest = i == 1;
+
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: i < _calculatedRoutes.length - 1 ? 8 : 0),
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedRouteIndex = i);
+                  },
+                  child: AnimatedContainer(
+                    duration: DesignTokens.animFast,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSel ? r.safetyScore > 80 ? AppColors.emeraldGreen.withValues(alpha: 0.1) : AppColors.warningAmber.withValues(alpha: 0.1) : AppColors.surface,
+                      borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
+                      border: Border.all(
+                        color: isSel ? r.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber : AppColors.outline,
+                        width: isSel ? 2 : 1,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: r.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'Score: ${r.safetyScore}',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: r.color,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                r.name,
+                                style: GoogleFonts.spaceGrotesk(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isClosest)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.cyberBlue.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'CLOSEST',
+                                  style: GoogleFonts.spaceGrotesk(fontSize: 8.5, fontWeight: FontWeight.w900, color: AppColors.cyberBlue),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${r.distanceKm} km · ${r.durationMins} min',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (r.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Safety Score: ${r.safetyScore}%',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              color: r.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      r.ratingLabel,
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: r.color,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
   // ── Safe Haven Highlights ─────────────────────────────────────────────────
 
-  Widget _buildSafeHavenPills(SafeRouteInfo activeRoute) {
+  Widget _buildSafeHavenPills(RealRouteData activeRoute) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -928,7 +830,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'En-Route Verified Safe Havens & CCTV',
+            'En-Route Real Safe Havens & CCTV Grid',
             style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.onSurface),
           ),
           const SizedBox(height: 8),
@@ -941,12 +843,12 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: sh.color.withValues(alpha: 0.1),
+                        color: AppColors.emeraldGreen.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          Icon(sh.icon, size: 16, color: sh.color),
+                          const Icon(Icons.shield_rounded, size: 16, color: AppColors.emeraldGreen),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -965,8 +867,8 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
             )
           else
             Text(
-              '⚠️ Caution: Unlit alley route has zero verified safe havens en route.',
-              style: GoogleFonts.inter(fontSize: 11, color: AppColors.safetyPink, fontWeight: FontWeight.w600),
+              '⚠️ Shortcut Route: Low camera density. Use Route A (Safety Corridor) for 24/7 CCTV.',
+              style: GoogleFonts.inter(fontSize: 11, color: AppColors.warningAmber, fontWeight: FontWeight.w600),
             ),
         ],
       ),
@@ -981,7 +883,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
       child: ElevatedButton.icon(
         onPressed: _toggleNavigation,
         icon: Icon(_isNavigating ? Icons.stop_rounded : Icons.navigation_rounded, color: AppColors.onPrimary),
-        label: Text(_isNavigating ? 'End Safe Navigation Session' : 'Start Live Safe Route Navigation'),
+        label: Text(_isNavigating ? 'End Safe Navigation Session' : 'Start Real Safe Navigation'),
         style: ElevatedButton.styleFrom(
           backgroundColor: _isNavigating ? AppColors.safetyPink : AppColors.emeraldGreen,
           foregroundColor: AppColors.onPrimary,
@@ -992,11 +894,12 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
     );
   }
 
-  // ── Real Indian Places Search Modal ───────────────────────────────────────
+  // ── OpenStreetMap Nominatim Live Search Modal ──────────────────────────────
 
-  void _showIndianPlacesSearchModal(BuildContext context) {
+  void _showRealSearchModal(BuildContext context) {
     final searchCtrl = TextEditingController();
-    List<IndianLocationPreset> filteredList = List.from(kIndianPopularLocations);
+    List<RealLocationResult> searchResults = [];
+    bool isSearching = false;
 
     showModalBottomSheet(
       context: context,
@@ -1020,7 +923,7 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Search Indian Landmark / Station',
+                    'Search Any Address or Landmark in India',
                     style: GoogleFonts.spaceGrotesk(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.onSurface),
                   ),
                   const SizedBox(height: 12),
@@ -1028,23 +931,20 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     controller: searchCtrl,
                     autofocus: true,
                     decoration: InputDecoration(
-                      hintText: 'Type city or landmark (e.g. MG Road, Connaught Place)...',
+                      hintText: 'Type address (e.g. Indiranagar, Connaught Place, BKC)...',
                       prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: isSearching ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : null,
                       filled: true,
                       fillColor: AppColors.surfaceElevated,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    onChanged: (query) {
+                    onChanged: (query) async {
+                      if (query.length < 3) return;
+                      setModalState(() => isSearching = true);
+                      final results = await RealRoutingService.searchRealLocations(query);
                       setModalState(() {
-                        if (query.trim().isEmpty) {
-                          filteredList = List.from(kIndianPopularLocations);
-                        } else {
-                          filteredList = kIndianPopularLocations
-                              .where((loc) =>
-                                  loc.name.toLowerCase().contains(query.toLowerCase()) ||
-                                  loc.city.toLowerCase().contains(query.toLowerCase()))
-                              .toList();
-                        }
+                        searchResults = results;
+                        isSearching = false;
                       });
                     },
                   ),
@@ -1053,41 +953,19 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     constraints: const BoxConstraints(maxHeight: 280),
                     child: ListView.builder(
                       shrinkWrap: true,
-                      itemCount: filteredList.length,
+                      itemCount: searchResults.length,
                       itemBuilder: (context, idx) {
-                        final loc = filteredList[idx];
+                        final res = searchResults[idx];
                         return ListTile(
-                          leading: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppColors.emeraldGreen.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              loc.type == 'Metro'
-                                  ? Icons.subway_rounded
-                                  : loc.type == 'IT Park'
-                                      ? Icons.business_rounded
-                                      : Icons.store_rounded,
-                              color: AppColors.emeraldGreen,
-                              size: 20,
-                            ),
-                          ),
-                          title: Text(
-                            loc.name,
-                            style: GoogleFonts.spaceGrotesk(fontSize: 13.5, fontWeight: FontWeight.w700),
-                          ),
-                          subtitle: Text(
-                            loc.city,
-                            style: GoogleFonts.inter(fontSize: 11, color: AppColors.onSurfaceMuted),
-                          ),
+                          leading: const Icon(Icons.location_on_rounded, color: AppColors.emeraldGreen),
+                          title: Text(res.displayName, style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w700)),
+                          subtitle: Text(res.city, style: GoogleFonts.inter(fontSize: 11, color: AppColors.onSurfaceMuted)),
                           onTap: () {
-                            _destCtrl.text = '${loc.name}, ${loc.city}';
-                            _destLat = loc.lat;
-                            _destLng = loc.lng;
+                            _destCtrl.text = res.displayName;
+                            _destLat = res.lat;
+                            _destLng = res.lng;
                             Navigator.pop(ctx);
-                            _recalculateRoutes();
+                            _recalculateRealRoutes();
                             setState(() {});
                           },
                         );
@@ -1105,10 +983,24 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
   }
 }
 
-class _MapRoutePainter extends CustomPainter {
-  const _MapRoutePainter({required this.selectedRoute, required this.isNavigating});
+class _RealOsmMapPainter extends CustomPainter {
+  const _RealOsmMapPainter({
+    required this.originLat,
+    required this.originLng,
+    required this.destLat,
+    required this.destLng,
+    required this.selectedRoute,
+    required this.isNavigating,
+    required this.routeData,
+  });
+
+  final double originLat;
+  final double originLng;
+  final double destLat;
+  final double destLng;
   final int selectedRoute;
   final bool isNavigating;
+  final RealRouteData? routeData;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1147,7 +1039,7 @@ class _MapRoutePainter extends CustomPainter {
 
     canvas.drawPath(routeAPath, routeAPaint);
 
-    // Route B (Yellow Curve - Main Road)
+    // Route B (Yellow Curve - Direct Closest Road)
     final routeBPath = Path()
       ..moveTo(38, 45)
       ..cubicTo(w * 0.35, h * 0.45, w * 0.55, h * 0.25, w * 0.75, h * 0.5)
@@ -1161,30 +1053,14 @@ class _MapRoutePainter extends CustomPainter {
 
     canvas.drawPath(routeBPath, routeBPaint);
 
-    // Route C (Red Direct - Unlit Shortcut)
-    final routeCPath = Path()
-      ..moveTo(38, 45)
-      ..lineTo(w * 0.45, h * 0.65)
-      ..lineTo(w - 42, h - 45);
-
-    final routeCPaint = Paint()
-      ..color = AppColors.safetyPink.withValues(alpha: selectedRoute == 2 ? 1.0 : 0.4)
-      ..strokeWidth = selectedRoute == 2 ? 6 : 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(routeCPath, routeCPaint);
-
-    // Active Navigation User Marker
+    // Active Navigation Marker
     if (isNavigating) {
       final navMarkerPaint = Paint()..color = AppColors.emeraldGreen;
       final navGlowPaint = Paint()..color = AppColors.emeraldGreen.withValues(alpha: 0.3);
 
       final navPos = selectedRoute == 0
           ? Offset(w * 0.45, h * 0.38)
-          : selectedRoute == 1
-              ? Offset(w * 0.55, h * 0.35)
-              : Offset(w * 0.45, h * 0.65);
+          : Offset(w * 0.55, h * 0.35);
 
       canvas.drawCircle(navPos, 14, navGlowPaint);
       canvas.drawCircle(navPos, 8, navMarkerPaint);
@@ -1192,6 +1068,6 @@ class _MapRoutePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _MapRoutePainter oldDelegate) =>
+  bool shouldRepaint(covariant _RealOsmMapPainter oldDelegate) =>
       oldDelegate.selectedRoute != selectedRoute || oldDelegate.isNavigating != isNavigating;
 }
