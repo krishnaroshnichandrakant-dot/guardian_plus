@@ -1,0 +1,30 @@
+# Netlify Configuration for Guardian Plus (Flutter Web App)
+
+[build]
+  publish = "build/web"
+  command = "chmod +x ./scripts/build_netlify.sh && ./scripts/build_netlify.sh"
+
+# SPA Client-Side Routing Redirect (GoRouter Support)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security Headers & Caching Strategy
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(self), microphone=(self), camera=(self)"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/canvaskit/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

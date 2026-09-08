@@ -40,8 +40,30 @@ For comprehensive technical architecture, feature matrices, and security specifi
 - **🛡️ Cybersecurity**: Wi-Fi Network Auditor, ML URL & Phishing Inspector, App Permission Risk Auditor & QR Code Scanner.
 - **🔐 Security Architecture**: Hardware KeyStore / Secure Enclave integration, AES-256-GCM encryption, Root/Jailbreak detection, and anti-tamper runtime guards.
 
+## 🌐 Netlify Deployment
+
+This project includes zero-config Netlify integration out of the box via `netlify.toml` and `./scripts/build_netlify.sh`.
+
+### Option A: Automatic Git-Integrated Deployment
+1. Connect your GitHub repository (`krishnaroshnichandrakant-dot/guardian_plus`) to **[Netlify Dashboard](https://app.netlify.com)**.
+2. Netlify will automatically detect `netlify.toml` and use the following settings:
+   - **Publish directory**: `build/web`
+   - **Build command**: `chmod +x ./scripts/build_netlify.sh && ./scripts/build_netlify.sh`
+3. Click **Deploy Site** — Netlify will build and host your app with SPA client-side routing support (`/* -> /index.html`).
+
+### Option B: Manual CLI or Drag-and-Drop Deployment
+1. Build the production bundle:
+   ```bash
+   flutter build web --release
+   ```
+2. Drag & drop the `build/web` directory into **[Netlify Drop](https://app.netlify.com/drop)** or deploy via CLI:
+   ```bash
+   npx netlify-cli deploy --prod --dir=build/web
+   ```
+
 ---
 
 ## 📖 Full Documentation
 
 See **[PROJECT_DETAILS.md](PROJECT_DETAILS.md)** for in-depth system design, cryptography layer, and directory mapping.
+
