@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../../../shared/security/secure_http_client.dart';
@@ -345,14 +344,12 @@ class UrlSafetyService {
             reasons.add('🚫 Network Probe ISP Sinkhole: Connection intercepted by Indian Telecom ISP block page.');
           }
         }
-      } on SocketException catch (_) {
-        // SocketException during network probe can indicate ISP DNS sinkhole or blocked host
+      } catch (_) {
+        // Network probe note for unreachable host or timeout
         if (!isLegit) {
           score += 20;
           reasons.add('Network Probe Note: Host unreachable or socket connection refused by gateway.');
         }
-      } catch (_) {
-        // Ignore timeout or network errors silently for offline fallback
       }
     }
 

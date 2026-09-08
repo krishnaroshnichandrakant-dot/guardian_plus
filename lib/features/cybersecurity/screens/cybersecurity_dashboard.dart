@@ -22,7 +22,7 @@ class CybersecurityDashboard extends StatefulWidget {
 
 class _CybersecurityDashboardState extends State<CybersecurityDashboard> with SingleTickerProviderStateMixin {
   final _urlCtrl = TextEditingController();
-  final _urlSafetyService = UrlSafetyService(SecureHttpClient());
+  late final UrlSafetyService _urlSafetyService;
 
   bool _isScanning = false;
   UrlAnalysisResult? _analysisResult;
@@ -36,6 +36,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
   @override
   void initState() {
     super.initState();
+    _urlSafetyService = UrlSafetyService(SecureHttpClient());
     _radarPulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
