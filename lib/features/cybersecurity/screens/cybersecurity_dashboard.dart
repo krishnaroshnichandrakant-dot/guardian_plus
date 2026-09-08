@@ -443,15 +443,23 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
   // ── Live Telemetry 4-Metric Grid ──────────────────────────────────────────
 
   Widget _buildLiveTelemetryGrid() {
-    return Row(
+    return Column(
       children: [
-        Expanded(child: _buildTelemetryTile('2,840', 'URLs Inspected', Icons.manage_search_rounded, AppColors.cyberBlue)),
-        const SizedBox(width: 10),
-        Expanded(child: _buildTelemetryTile('14', 'Threats Blocked', Icons.gpp_bad_rounded, AppColors.safetyPink)),
-        const SizedBox(width: 10),
-        Expanded(child: _buildTelemetryTile('WPA3', 'Wi-Fi Security', Icons.wifi_lock_rounded, AppColors.emeraldGreen)),
-        const SizedBox(width: 10),
-        Expanded(child: _buildTelemetryTile('0 Leaks', 'Dark Web Status', Icons.lock_outline_rounded, AppColors.detectiveTeal)),
+        Row(
+          children: [
+            Expanded(child: _buildTelemetryTile('2,840', 'URLs Inspected', Icons.manage_search_rounded, AppColors.cyberBlue)),
+            const SizedBox(width: 10),
+            Expanded(child: _buildTelemetryTile('14', 'Threats Blocked', Icons.gpp_bad_rounded, AppColors.safetyPink)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _buildTelemetryTile('WPA3', 'Wi-Fi Security', Icons.wifi_lock_rounded, AppColors.emeraldGreen)),
+            const SizedBox(width: 10),
+            Expanded(child: _buildTelemetryTile('0 Leaks', 'Dark Web Status', Icons.lock_outline_rounded, AppColors.detectiveTeal)),
+          ],
+        ),
       ],
     );
   }
@@ -762,20 +770,32 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
       ),
     ];
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.15,
-      ),
-      itemCount: features.length,
-      itemBuilder: (context, idx) {
-        final f = features[idx];
-        return _buildModuleCard(f);
-      },
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: _buildModuleCard(features[0])),
+            const SizedBox(width: 12),
+            Expanded(child: _buildModuleCard(features[1])),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildModuleCard(features[2])),
+            const SizedBox(width: 12),
+            Expanded(child: _buildModuleCard(features[3])),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildModuleCard(features[4])),
+            const SizedBox(width: 12),
+            Expanded(child: _buildModuleCard(features[5])),
+          ],
+        ),
+      ],
     );
   }
 
