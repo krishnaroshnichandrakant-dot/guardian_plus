@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -519,200 +520,21 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
   // ── Real Interactive OpenStreetMap Map Canvas ──────────────────────────────
 
   Widget _buildInteractiveMapCanvas(RealRouteData? activeRoute) {
-    return Container(
-      height: 260,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE5EEE9),
-        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
-        border: Border.all(color: AppColors.outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
-        child: Stack(
-          children: [
-            // Map Tile Canvas with Real OpenStreetMap Data
-            CustomPaint(
-              size: const Size(double.infinity, 260),
-              painter: _RealOsmMapPainter(
-                originLat: _originLat,
-                originLng: _originLng,
-                destLat: _destLat,
-                destLng: _destLng,
-                selectedRoute: _selectedRouteIndex,
-                isNavigating: _isNavigating,
-                routeData: activeRoute,
-              ),
-            ),
-
-            // Origin Pin
-            Positioned(
-              left: 28,
-              top: 35,
-              child: _buildPin(Icons.my_location_rounded, AppColors.emeraldGreen, 'GPS Start'),
-            ),
-
-            // Destination Pin
-            Positioned(
-              right: 32,
-              bottom: 35,
-              child: _buildPin(Icons.location_on_rounded, AppColors.safetyPink, 'Destination'),
-            ),
-
-            // En-Route Safe Haven Pins
-            if (activeRoute != null && activeRoute.safeHavens.isNotEmpty) ...[
-              Positioned(
-                left: 110,
-                top: 75,
-                child: _buildSafeHavenMapPin(activeRoute.safeHavens[0].name, Icons.local_police_rounded, AppColors.cyberBlue),
-              ),
-              if (activeRoute.safeHavens.length > 1)
-                Positioned(
-                  right: 110,
-                  top: 135,
-                  child: _buildSafeHavenMapPin(activeRoute.safeHavens[1].name, Icons.local_pharmacy_rounded, AppColors.emeraldGreen),
-                ),
-            ],
-
-            // Floating Route Score Tags on Map
-            if (_calculatedRoutes.length >= 2) ...[
-              Positioned(
-                left: 75,
-                top: 40,
-                child: _buildRouteMapTag(
-                  'Route A · ${_calculatedRoutes[0].distanceKm} km (${_calculatedRoutes[0].safetyScore}% Safe)',
-                  AppColors.emeraldGreen,
-                  isSelected: _selectedRouteIndex == 0,
-                  onTap: () => setState(() => _selectedRouteIndex = 0),
-                ),
-              ),
-              Positioned(
-                right: 50,
-                top: 95,
-                child: _buildRouteMapTag(
-                  'Route B · ${_calculatedRoutes[1].distanceKm} km (Closest Path)',
-                  AppColors.warningAmber,
-                  isSelected: _selectedRouteIndex == 1,
-                  onTap: () => setState(() => _selectedRouteIndex = 1),
-                ),
-              ),
-            ],
-
-            // Recenter Live GPS Button
-            Positioned(
-              right: 12,
-              top: 12,
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  _fetchLiveGpsAndAddress();
-                },
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 6,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.my_location_rounded, color: AppColors.emeraldGreen, size: 20),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPin(IconData icon, Color color, String label) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.5),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Icon(icon, color: Colors.white, size: 16),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSafeHavenMapPin(String name, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            name,
-            style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: AppColors.onSurface),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRouteMapTag(String text, Color color, {required bool isSelected, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: DesignTokens.animFast,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? color : Colors.white,
-          borderRadius: BorderRadius.circular(DesignTokens.radiusFull),
-          border: Border.all(color: color, width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: (isSelected ? color : Colors.black).withValues(alpha: 0.15),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: Text(
-          text,
-          style: GoogleFonts.spaceGrotesk(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: isSelected ? Colors.white : AppColors.onSurface,
-          ),
-        ),
-      ),
+    return _RealOsmInteractiveMap(
+      originLat: _originLat,
+      originLng: _originLng,
+      destLat: _destLat,
+      destLng: _destLng,
+      selectedRoute: _selectedRouteIndex,
+      isNavigating: _isNavigating,
+      routeData: activeRoute,
+      onRecenter: () {
+        HapticFeedback.selectionClick();
+        _fetchLiveGpsAndAddress();
+      },
+      onSelectRoute: (idx) {
+        setState(() => _selectedRouteIndex = idx);
+      },
     );
   }
 
@@ -740,10 +562,10 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     duration: DesignTokens.animFast,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: isSel ? r.safetyScore > 80 ? AppColors.emeraldGreen.withValues(alpha: 0.1) : AppColors.warningAmber.withValues(alpha: 0.1) : AppColors.surface,
+                      color: isSel ? (r.safetyScore > 80 ? AppColors.emeraldGreen.withValues(alpha: 0.1) : AppColors.warningAmber.withValues(alpha: 0.1)) : AppColors.surface,
                       borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
                       border: Border.all(
-                        color: isSel ? r.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber : AppColors.outline,
+                        color: isSel ? (r.safetyScore > 80 ? AppColors.emeraldGreen : AppColors.warningAmber) : AppColors.outline,
                         width: isSel ? 2 : 1,
                       ),
                     ),
@@ -954,19 +776,19 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
                     child: ListView.builder(
                       shrinkWrap: true,
                       itemCount: searchResults.length,
-                      itemBuilder: (context, idx) {
-                        final res = searchResults[idx];
+                      itemBuilder: (context, index) {
+                        final item = searchResults[index];
                         return ListTile(
                           leading: const Icon(Icons.location_on_rounded, color: AppColors.emeraldGreen),
-                          title: Text(res.displayName, style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w700)),
-                          subtitle: Text(res.city, style: GoogleFonts.inter(fontSize: 11, color: AppColors.onSurfaceMuted)),
+                          title: Text(item.displayName, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
                           onTap: () {
-                            _destCtrl.text = res.displayName;
-                            _destLat = res.lat;
-                            _destLng = res.lng;
+                            setState(() {
+                              _destCtrl.text = item.displayName;
+                              _destLat = item.lat;
+                              _destLng = item.lng;
+                            });
                             Navigator.pop(ctx);
                             _recalculateRealRoutes();
-                            setState(() {});
                           },
                         );
                       },
@@ -983,8 +805,10 @@ class _SafeRouteScreenState extends State<SafeRouteScreen>
   }
 }
 
-class _RealOsmMapPainter extends CustomPainter {
-  const _RealOsmMapPainter({
+// ── OpenStreetMap Cartographic Tile Engine & Road Polyline Renderer ────────────
+
+class _RealOsmInteractiveMap extends StatelessWidget {
+  const _RealOsmInteractiveMap({
     required this.originLat,
     required this.originLng,
     required this.destLat,
@@ -992,6 +816,8 @@ class _RealOsmMapPainter extends CustomPainter {
     required this.selectedRoute,
     required this.isNavigating,
     required this.routeData,
+    required this.onRecenter,
+    required this.onSelectRoute,
   });
 
   final double originLat;
@@ -1001,73 +827,384 @@ class _RealOsmMapPainter extends CustomPainter {
   final int selectedRoute;
   final bool isNavigating;
   final RealRouteData? routeData;
+  final VoidCallback onRecenter;
+  final ValueChanged<int> onSelectRoute;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 280,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE5EEE9),
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+        border: Border.all(color: AppColors.outline),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final h = constraints.maxHeight;
+
+            final coords = routeData?.geoCoordinates ?? [];
+
+            // Center lat/lng
+            final centerLat = (originLat + destLat) / 2;
+            final centerLng = (originLng + destLng) / 2;
+
+            // Zoom calculation
+            double minLat = originLat < destLat ? originLat : destLat;
+            double maxLat = originLat > destLat ? originLat : destLat;
+            double minLng = originLng < destLng ? originLng : destLng;
+            double maxLng = originLng > destLng ? originLng : destLng;
+
+            for (final pt in coords) {
+              if (pt[0] < minLat) minLat = pt[0];
+              if (pt[0] > maxLat) maxLat = pt[0];
+              if (pt[1] < minLng) minLng = pt[1];
+              if (pt[1] > maxLng) maxLng = pt[1];
+            }
+
+            final latDiff = (maxLat - minLat).abs();
+            final lngDiff = (maxLng - minLng).abs();
+            final maxSpan = math.max(latDiff, lngDiff);
+
+            int zoom = 13;
+            if (maxSpan > 0.4) {
+              zoom = 10;
+            } else if (maxSpan > 0.2) {
+              zoom = 11;
+            } else if (maxSpan > 0.08) {
+              zoom = 12;
+            } else if (maxSpan > 0.03) {
+              zoom = 13;
+            } else if (maxSpan > 0.01) {
+              zoom = 14;
+            } else {
+              zoom = 15;
+            }
+
+            // Mercator projection helpers
+            double lngToPx(double lng) {
+              final n = math.pow(2.0, zoom);
+              return ((lng + 180.0) / 360.0) * 256.0 * n;
+            }
+
+            double latToPx(double lat) {
+              final rad = lat * math.pi / 180.0;
+              final n = math.pow(2.0, zoom);
+              return (1.0 - (math.log(math.tan(rad) + (1.0 / math.cos(rad))) / math.pi)) / 2.0 * 256.0 * n;
+            }
+
+            final centerPxX = lngToPx(centerLng);
+            final centerPxY = latToPx(centerLat);
+
+            Offset toOffset(double lat, double lng) {
+              final x = w / 2 + (lngToPx(lng) - centerPxX);
+              final y = h / 2 + (latToPx(lat) - centerPxY);
+              return Offset(x, y);
+            }
+
+            // OpenStreetMap tile math
+            final numTiles = math.pow(2, zoom).toInt();
+            final centerTileX = ((centerLng + 180.0) / 360.0 * numTiles).floor();
+            final latRad = centerLat * math.pi / 180.0;
+            final centerTileY = ((1.0 - (math.log(math.tan(latRad) + (1.0 / math.cos(latRad))) / math.pi)) / 2.0 * numTiles).floor();
+
+            List<Widget> tileWidgets = [];
+            for (int dx = -2; dx <= 2; dx++) {
+              for (int dy = -2; dy <= 2; dy++) {
+                final tx = (centerTileX + dx) % numTiles;
+                final ty = centerTileY + dy;
+                if (ty < 0 || ty >= numTiles) continue;
+
+                final tileGlobalX = (centerTileX + dx) * 256.0;
+                final tileGlobalY = (centerTileY + dy) * 256.0;
+
+                final tileScreenX = w / 2 + (tileGlobalX - centerPxX);
+                final tileScreenY = h / 2 + (tileGlobalY - centerPxY);
+
+                final tileUrl = 'https://tile.openstreetmap.org/$zoom/$tx/$ty.png';
+
+                tileWidgets.add(
+                  Positioned(
+                    left: tileScreenX,
+                    top: tileScreenY,
+                    width: 256,
+                    height: 256,
+                    child: Image.network(
+                      tileUrl,
+                      headers: const {'User-Agent': 'GuardianPlusSafetyApp/1.0'},
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFE5EEE9),
+                          child: const Center(
+                            child: Icon(Icons.map_outlined, color: Colors.black26),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              }
+            }
+
+            final originOffset = toOffset(originLat, originLng);
+            final destOffset = toOffset(destLat, destLng);
+
+            return Stack(
+              children: [
+                // 1. Real OpenStreetMap Cartographic Tile Layer
+                ...tileWidgets,
+
+                // 2. Real Road Polyline Drawer (OSRM exact coordinates)
+                CustomPaint(
+                  size: Size(w, h),
+                  painter: _OsmPolylinePainter(
+                    coords: coords,
+                    toOffset: toOffset,
+                    selectedRoute: selectedRoute,
+                    isNavigating: isNavigating,
+                  ),
+                ),
+
+                // 3. Origin Pin (Green Pulse)
+                Positioned(
+                  left: originOffset.dx - 16,
+                  top: originOffset.dy - 32,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: AppColors.emeraldGreen,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: AppColors.emeraldGreen, blurRadius: 10)],
+                        ),
+                        child: const Icon(Icons.my_location_rounded, color: Colors.white, size: 16),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                        ),
+                        child: Text(
+                          'START',
+                          style: GoogleFonts.spaceGrotesk(fontSize: 8.5, fontWeight: FontWeight.w900, color: AppColors.emeraldGreen),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 4. Destination Pin (Pink Badge)
+                Positioned(
+                  left: destOffset.dx - 16,
+                  top: destOffset.dy - 32,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: AppColors.safetyPink,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: AppColors.safetyPink, blurRadius: 10)],
+                        ),
+                        child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 16),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                        ),
+                        child: Text(
+                          'DESTINATION',
+                          style: GoogleFonts.spaceGrotesk(fontSize: 8.5, fontWeight: FontWeight.w900, color: AppColors.safetyPink),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 5. En-Route Safe Haven Pins
+                if (routeData != null && routeData!.safeHavens.isNotEmpty) ...[
+                  if (coords.length > 5)
+                    Positioned(
+                      left: toOffset(coords[coords.length ~/ 3][0], coords[coords.length ~/ 3][1]).dx - 10,
+                      top: toOffset(coords[coords.length ~/ 3][0], coords[coords.length ~/ 3][1]).dy - 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.cyberBlue, width: 1.5),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.local_police_rounded, size: 11, color: AppColors.cyberBlue),
+                            const SizedBox(width: 3),
+                            Text(
+                              routeData!.safeHavens[0].name,
+                              style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (routeData!.safeHavens.length > 1 && coords.length > 10)
+                    Positioned(
+                      left: toOffset(coords[(coords.length * 2) ~/ 3][0], coords[(coords.length * 2) ~/ 3][1]).dx - 10,
+                      top: toOffset(coords[(coords.length * 2) ~/ 3][0], coords[(coords.length * 2) ~/ 3][1]).dy - 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.emeraldGreen, width: 1.5),
+                          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.local_pharmacy_rounded, size: 11, color: AppColors.emeraldGreen),
+                            const SizedBox(width: 3),
+                            Text(
+                              routeData!.safeHavens[1].name,
+                              style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+
+                // 6. Recenter GPS Button
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  child: GestureDetector(
+                    onTap: onRecenter,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        shape: BoxShape.circle,
+                        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                      ),
+                      child: const Icon(Icons.my_location_rounded, color: AppColors.emeraldGreen, size: 20),
+                    ),
+                  ),
+                ),
+
+                // 7. OpenStreetMap Watermark / Attribution
+                Positioned(
+                  right: 8,
+                  bottom: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '© OpenStreetMap contributors',
+                      style: GoogleFonts.inter(fontSize: 8.5, color: Colors.black87, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _OsmPolylinePainter extends CustomPainter {
+  const _OsmPolylinePainter({
+    required this.coords,
+    required this.toOffset,
+    required this.selectedRoute,
+    required this.isNavigating,
+  });
+
+  final List<List<double>> coords;
+  final Offset Function(double lat, double lng) toOffset;
+  final int selectedRoute;
+  final bool isNavigating;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
+    if (coords.isEmpty) return;
 
-    // Light map street grid
-    final streetPaint = Paint()
-      ..color = const Color(0xFFD6E4DC)
-      ..strokeWidth = 6
-      ..style = PaintingStyle.stroke;
+    final points = coords.map((c) => toOffset(c[0], c[1])).toList();
 
-    canvas.drawLine(Offset(0, h * 0.35), Offset(w, h * 0.35), streetPaint);
-    canvas.drawLine(Offset(0, h * 0.7), Offset(w, h * 0.7), streetPaint);
-    canvas.drawLine(Offset(w * 0.3, 0), Offset(w * 0.3, h), streetPaint);
-    canvas.drawLine(Offset(w * 0.75, 0), Offset(w * 0.75, h), streetPaint);
-
-    // Park area green patch
-    final parkPaint = Paint()..color = const Color(0xFFC7DFD3);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.4, h * 0.1, w * 0.25, h * 0.35), const Radius.circular(8)),
-      parkPaint,
-    );
-
-    // Route A (Green Curve - Safer Corridor)
-    final routeAPath = Path()
-      ..moveTo(38, 45)
-      ..cubicTo(w * 0.2, h * 0.15, w * 0.5, h * 0.35, w * 0.65, h * 0.6)
-      ..cubicTo(w * 0.75, h * 0.75, w * 0.85, h * 0.85, w - 42, h - 45);
-
-    final routeAPaint = Paint()
-      ..color = AppColors.emeraldGreen.withValues(alpha: selectedRoute == 0 ? 1.0 : 0.4)
-      ..strokeWidth = selectedRoute == 0 ? 6 : 3
+    // 1. Path Glow
+    final glowPaint = Paint()
+      ..color = (selectedRoute == 0 ? AppColors.emeraldGreen : AppColors.warningAmber).withValues(alpha: 0.3)
+      ..strokeWidth = 10
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    canvas.drawPath(routeAPath, routeAPaint);
+    final path = Path();
+    path.moveTo(points[0].dx, points[0].dy);
+    for (int i = 1; i < points.length; i++) {
+      path.lineTo(points[i].dx, points[i].dy);
+    }
+    canvas.drawPath(path, glowPaint);
 
-    // Route B (Yellow Curve - Direct Closest Road)
-    final routeBPath = Path()
-      ..moveTo(38, 45)
-      ..cubicTo(w * 0.35, h * 0.45, w * 0.55, h * 0.25, w * 0.75, h * 0.5)
-      ..lineTo(w - 42, h - 45);
-
-    final routeBPaint = Paint()
-      ..color = AppColors.warningAmber.withValues(alpha: selectedRoute == 1 ? 1.0 : 0.4)
-      ..strokeWidth = selectedRoute == 1 ? 6 : 3
+    // 2. Main Road Polyline
+    final polylinePaint = Paint()
+      ..color = selectedRoute == 0 ? AppColors.emeraldGreen : AppColors.warningAmber
+      ..strokeWidth = 5.5
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    canvas.drawPath(routeBPath, routeBPaint);
+    canvas.drawPath(path, polylinePaint);
 
-    // Active Navigation Marker
-    if (isNavigating) {
-      final navMarkerPaint = Paint()..color = AppColors.emeraldGreen;
-      final navGlowPaint = Paint()..color = AppColors.emeraldGreen.withValues(alpha: 0.3);
+    // 3. Waypoint dots along the actual turns
+    final dotPaint = Paint()..color = Colors.white;
+    for (int i = 0; i < points.length; i += math.max(1, (points.length / 8).round())) {
+      canvas.drawCircle(points[i], 3, dotPaint);
+    }
 
-      final navPos = selectedRoute == 0
-          ? Offset(w * 0.45, h * 0.38)
-          : Offset(w * 0.55, h * 0.35);
+    // 4. Navigation vehicle/user indicator moving along the exact polyline
+    if (isNavigating && points.isNotEmpty) {
+      final navIndex = (points.length * 0.4).round().clamp(0, points.length - 1);
+      final navPos = points[navIndex];
 
-      canvas.drawCircle(navPos, 14, navGlowPaint);
-      canvas.drawCircle(navPos, 8, navMarkerPaint);
+      final navGlow = Paint()..color = AppColors.emeraldGreen.withValues(alpha: 0.35);
+      final navDot = Paint()..color = AppColors.emeraldGreen;
+      final navCore = Paint()..color = Colors.white;
+
+      canvas.drawCircle(navPos, 14, navGlow);
+      canvas.drawCircle(navPos, 8, navDot);
+      canvas.drawCircle(navPos, 4, navCore);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _RealOsmMapPainter oldDelegate) =>
-      oldDelegate.selectedRoute != selectedRoute || oldDelegate.isNavigating != isNavigating;
+  bool shouldRepaint(covariant _OsmPolylinePainter oldDelegate) => true;
 }
+
