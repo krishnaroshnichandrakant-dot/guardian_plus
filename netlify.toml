@@ -4,6 +4,9 @@
   publish = "build/web"
   command = "chmod +x ./scripts/build_netlify.sh && ./scripts/build_netlify.sh"
 
+[build.environment]
+  FLUTTER_SUPPRESS_ANALYTICS = "true"
+
 # SPA Client-Side Routing Redirect (GoRouter Support)
 [[redirects]]
   from = "/*"
