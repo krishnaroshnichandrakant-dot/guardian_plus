@@ -136,126 +136,98 @@ class RealRoutingService {
     required String destName,
   }) async {
     try {
-      final url = Uri.parse('$_osrmBase/$originLng,$originLat;$destLng,$destLat?overview=full&geometries=geojson&steps=true');
+      final url = Uri.parse('$_osrmBase/$originLng,$originLat;$destLng,$destLat?overview=full&geometries=geojson&steps=true&alternatives=true');
       final response = await http.get(url).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final routes = data['routes'] as List?;
+        final rawRoutes = data['routes'] as List?;
 
-        if (routes != null && routes.isNotEmpty) {
-          final mainRoute = routes[0];
-          final distanceMeters = (mainRoute['distance'] as num).toDouble();
-          final durationSecs = (mainRoute['duration'] as num).toDouble();
+        if (rawRoutes != null && rawRoutes.isNotEmpty) {
+          final parsedRoutes = <RealRouteData>[];
 
-          final distanceKm = double.parse((distanceMeters / 1000.0).toStringAsFixed(1));
-          final durationMins = (durationSecs / 60.0).round().clamp(1, 180);
+          for (int i = 0; i < rawRoutes.length && i < 3; i++) {
+            final routeObj = rawRoutes[i];
+            final distanceMeters = (routeObj['distance'] as num).toDouble();
+            final durationSecs = (routeObj['duration'] as num).toDouble();
 
-          // Extract GeoJSON coordinates [[lng, lat], ...] -> convert to [[lat, lng], ...]
-          final geometry = mainRoute['geometry'] as Map<String, dynamic>?;
-          final coordsList = (geometry?['coordinates'] as List?)
-                  ?.map((c) => [(c[1] as num).toDouble(), (c[0] as num).toDouble()])
-                  .toList() ??
-              [
-                [originLat, originLng],
-                [destLat, destLng]
-              ];
+            final distanceKm = double.parse((distanceMeters / 1000.0).toStringAsFixed(1));
+            final durationMins = (durationSecs / 60.0).round().clamp(1, 180);
 
-          // Extract Steps
-          final legs = mainRoute['legs'] as List?;
-          final stepsList = <RealTurnInstruction>[];
-          String primaryRoad = 'Main Road';
+            // Extract GeoJSON coordinates [[lng, lat], ...] -> convert to [[lat, lng], ...]
+            final geometry = routeObj['geometry'] as Map<String, dynamic>?;
+            final coordsList = (geometry?['coordinates'] as List?)
+                    ?.map((c) => [(c[1] as num).toDouble(), (c[0] as num).toDouble()])
+                    .toList() ??
+                [
+                  [originLat, originLng],
+                  [destLat, destLng]
+                ];
 
-          if (legs != null && legs.isNotEmpty) {
-            final steps = legs[0]['steps'] as List?;
-            if (steps != null) {
-              for (final step in steps) {
-                final name = step['name'] as String? ?? '';
-                if (name.isNotEmpty && primaryRoad == 'Main Road') {
-                  primaryRoad = name;
+            // Extract Steps
+            final legs = routeObj['legs'] as List?;
+            final stepsList = <RealTurnInstruction>[];
+            String primaryRoad = 'Main Road';
+
+            if (legs != null && legs.isNotEmpty) {
+              final steps = legs[0]['steps'] as List?;
+              if (steps != null) {
+                for (final step in steps) {
+                  final name = step['name'] as String? ?? '';
+                  if (name.isNotEmpty && primaryRoad == 'Main Road') {
+                    primaryRoad = name;
+                  }
+                  final stepDist = (step['distance'] as num).toDouble();
+                  final maneuver = step['maneuver'] as Map<String, dynamic>?;
+                  final instruction = stepText(maneuver, name);
+                  stepsList.add(RealTurnInstruction(
+                    instruction: instruction,
+                    distanceMeters: stepDist,
+                    modifier: maneuver?['modifier']?.toString() ?? 'straight',
+                  ));
                 }
-                final stepDist = (step['distance'] as num).toDouble();
-                final maneuver = step['maneuver'] as Map<String, dynamic>?;
-                final instruction = stepText(maneuver, name);
-                stepsList.add(RealTurnInstruction(
-                  instruction: instruction,
-                  distanceMeters: stepDist,
-                  modifier: maneuver?['modifier']?.toString() ?? 'straight',
-                ));
               }
             }
+
+            if (stepsList.isEmpty) {
+              stepsList.add(RealTurnInstruction(
+                instruction: 'Proceed towards $destName on $primaryRoad',
+                distanceMeters: distanceMeters,
+                modifier: 'straight',
+              ));
+            }
+
+            final safetyScore = i == 0 ? 94 : (i == 1 ? 78 : 52);
+            final routeName = i == 0
+                ? 'Route A (Safe Corridor)'
+                : (i == 1 ? 'Route B (Closest Path)' : 'Route C (Alternative Road)');
+
+            parsedRoutes.add(
+              RealRouteData(
+                routeId: 'route_$i',
+                name: routeName,
+                viaRoad: 'via $primaryRoad',
+                distanceKm: distanceKm,
+                durationMins: durationMins,
+                safetyScore: safetyScore,
+                ratingLabel: i == 0 ? 'Well-Lit · 98% CCTV' : 'Standard Traffic Route',
+                geoCoordinates: coordsList,
+                turnInstructions: stepsList,
+                safeHavens: [
+                  RealSafeHaven(
+                    name: i == 0 ? 'PCR Police Control Post' : 'Metro Station Gate',
+                    type: i == 0 ? 'Police' : 'Metro',
+                    lat: (originLat + destLat) / 2,
+                    lng: (originLng + destLng) / 2,
+                  ),
+                ],
+              ),
+            );
           }
 
-          if (stepsList.isEmpty) {
-            stepsList.add(RealTurnInstruction(
-              instruction: 'Proceed towards $destName on $primaryRoad',
-              distanceMeters: distanceMeters,
-              modifier: 'straight',
-            ));
+          if (parsedRoutes.isNotEmpty) {
+            return parsedRoutes;
           }
-
-          // Generate 3 Ranked Routes based on Real Distance
-          return [
-            RealRouteData(
-              routeId: 'route_safest',
-              name: 'Route A (Safe Corridor)',
-              viaRoad: 'via $primaryRoad & CCTV Patrol Grid',
-              distanceKm: double.parse((distanceKm * 1.08).toStringAsFixed(1)),
-              durationMins: durationMins + 3,
-              safetyScore: 94,
-              ratingLabel: 'Well-Lit · 98% CCTV',
-              geoCoordinates: coordsList,
-              turnInstructions: stepsList,
-              safeHavens: [
-                RealSafeHaven(
-                  name: 'PCR Police Control Post',
-                  type: 'Police',
-                  lat: (originLat + destLat) / 2,
-                  lng: (originLng + destLng) / 2,
-                ),
-                RealSafeHaven(
-                  name: '24/7 Apollo Pharmacy',
-                  type: 'Pharmacy',
-                  lat: (originLat * 0.4 + destLat * 0.6),
-                  lng: (originLng * 0.4 + destLng * 0.6),
-                ),
-              ],
-            ),
-            RealRouteData(
-              routeId: 'route_closest',
-              name: 'Route B (Closest & Fastest Path)',
-              viaRoad: 'via Direct $primaryRoad',
-              distanceKm: distanceKm,
-              durationMins: durationMins,
-              safetyScore: 74,
-              ratingLabel: 'Shortest Distance · Commercial Traffic',
-              geoCoordinates: coordsList,
-              turnInstructions: stepsList,
-              safeHavens: [
-                RealSafeHaven(
-                  name: 'Metro Security Gate',
-                  type: 'Metro',
-                  lat: (originLat * 0.3 + destLat * 0.7),
-                  lng: (originLng * 0.3 + destLng * 0.7),
-                ),
-              ],
-            ),
-            RealRouteData(
-              routeId: 'route_shortcut',
-              name: 'Route C (Residential Sector Cut)',
-              viaRoad: 'via Inner Service Cut',
-              distanceKm: double.parse((distanceKm * 0.92).toStringAsFixed(1)),
-              durationMins: (durationMins * 0.9).round().clamp(1, 150),
-              safetyScore: 48,
-              ratingLabel: 'Higher Risk · Partial Lighting',
-              geoCoordinates: coordsList,
-              turnInstructions: [
-                const RealTurnInstruction(instruction: 'Turn into local residential lane', distanceMeters: 200, modifier: 'left'),
-                RealTurnInstruction(instruction: '⚠️ Caution: Low CCTV coverage near $destName', distanceMeters: 400, modifier: 'straight'),
-              ],
-              safeHavens: [],
-            ),
-          ];
         }
       }
     } catch (_) {}
