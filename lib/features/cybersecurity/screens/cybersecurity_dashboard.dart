@@ -96,31 +96,34 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            _buildAppBar(),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                DesignTokens.screenPadding,
-                12,
-                DesignTokens.screenPadding,
-                110,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  _buildLiveStatusHeader(),
-                  const SizedBox(height: 16),
-                  _buildRiskScoreGaugeCard(),
-                  const SizedBox(height: 16),
-                  _buildLiveTelemetryGrid(),
-                  const SizedBox(height: 20),
-                  _buildQuickUrlScannerCard(),
-                  const SizedBox(height: 24),
-                  _buildSectionHeader('CYBER DEFENSE MODULES', '6 Active Shields'),
-                  const SizedBox(height: 12),
-                  _buildFeatureGrid(context),
-                ]),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  DesignTokens.screenPadding,
+                  12,
+                  DesignTokens.screenPadding,
+                  110,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildLiveStatusHeader(),
+                    const SizedBox(height: 16),
+                    _buildRiskScoreGaugeCard(),
+                    const SizedBox(height: 16),
+                    _buildLiveTelemetryGrid(),
+                    const SizedBox(height: 20),
+                    _buildQuickUrlScannerCard(),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader('CYBER DEFENSE MODULES', '6 Active Shields'),
+                    const SizedBox(height: 12),
+                    _buildFeatureGrid(context),
+                  ],
+                ),
               ),
             ),
           ],
@@ -129,15 +132,16 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
     );
   }
 
-  // ── App Bar Header ─────────────────────────────────────────────────────────
+  // ── Header Bar ─────────────────────────────────────────────────────────────
 
-  SliverAppBar _buildAppBar() {
-    return SliverAppBar(
-      backgroundColor: AppColors.surface,
-      floating: true,
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      title: Row(
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.outline, width: 1)),
+      ),
+      child: Row(
         children: [
           Container(
             width: 38,
@@ -158,63 +162,58 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
             ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'CyberShield',
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.cyberBlue.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.cyberBlue.withValues(alpha: 0.5)),
-                    ),
-                    child: Text(
-                      'PRO',
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'CyberShield',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.cyberBlue,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.onSurface,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              Text(
-                'Real-Time Threat Intelligence & MeitY Blocklist Defense',
-                style: GoogleFonts.inter(
-                  fontSize: 10.5,
-                  color: AppColors.onSurfaceMuted,
-                  fontWeight: FontWeight.w500,
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.cyberBlue.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.cyberBlue.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(
+                        'PRO',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.cyberBlue,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                Text(
+                  'Real-Time Threat Intelligence & MeitY Defense',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 10.5,
+                    color: AppColors.onSurfaceMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: IconButton(
+          IconButton(
             icon: const Icon(Icons.security_update_good_rounded, color: AppColors.emeraldGreen),
             tooltip: 'Run Deep Audit',
             onPressed: _isDeepAuditing ? null : _triggerFullSystemAudit,
           ),
-        ),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppColors.outline),
+        ],
       ),
     );
   }
