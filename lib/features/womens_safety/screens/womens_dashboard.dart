@@ -30,6 +30,13 @@ class _WomensDashboardState extends ConsumerState<WomensDashboard>
   bool _isHolding = false;
   bool _sirenActive = false;
 
+  // Scheduled Safety Call & Timer State
+  int _dashSelectedTimerMinutes = 10;
+  int _dashCustomSeconds = 0;
+  bool _dashTimerArmed = false;
+  int _dashRemainingSeconds = 0;
+  Timer? _dashCountdownTimer;
+
   final List<Map<String, String>> _contacts = [
     {'name': 'Mom', 'phone': '+91 98765 43210', 'avatar': '👩'},
     {'name': 'Dad', 'phone': '+91 98765 43211', 'avatar': '👨'},
@@ -54,7 +61,69 @@ class _WomensDashboardState extends ConsumerState<WomensDashboard>
     HardwarePanicService.activeEmergencyNotifier.removeListener(_onEmergencyEventChanged);
     _pulseController.dispose();
     _holdTimer?.cancel();
+    _dashCountdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _armDashboardTimer() {
+    final totalSeconds = (_dashSelectedTimerMinutes * 60) + _dashCustomSeconds;
+    if (totalSeconds <= 0) {
+      _triggerFakeCallNow();
+      return;
+    }
+
+    _dashCountdownTimer?.cancel();
+    setState(() {
+      _dashTimerArmed = true;
+      _dashRemainingSeconds = totalSeconds;
+    });
+
+    _dashCountdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_dashRemainingSeconds <= 1) {
+        timer.cancel();
+        _triggerFakeCallNow();
+      } else {
+        if (mounted) {
+          setState(() {
+            _dashRemainingSeconds--;
+          });
+        }
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('⏱️ Safety timer armed! Fake call will ring in ${_formatDashTime(_dashRemainingSeconds)}.'),
+        backgroundColor: AppColors.neonPurple,
+      ),
+    );
+  }
+
+  void _cancelDashboardTimer() {
+    _dashCountdownTimer?.cancel();
+    setState(() {
+      _dashTimerArmed = false;
+      _dashRemainingSeconds = 0;
+    });
+  }
+
+  void _triggerFakeCallNow() {
+    _dashCountdownTimer?.cancel();
+    setState(() {
+      _dashTimerArmed = false;
+    });
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const FakeCallScreen(autoStartRinging: true),
+      ),
+    );
+  }
+
+  String _formatDashTime(int totalSecs) {
+    final m = totalSecs ~/ 60;
+    final s = totalSecs % 60;
+    return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   void _onEmergencyEventChanged() {
@@ -85,6 +154,8 @@ class _WomensDashboardState extends ConsumerState<WomensDashboard>
                   _buildHeroAtmosphereBanner(),
                   const SizedBox(height: 16),
                   _buildHardwarePanicCard(),
+                  const SizedBox(height: 16),
+                  _buildScheduledTimerCard(context),
                   const SizedBox(height: 16),
                   _buildHomeScreenSosWidgetCard(context),
                   const SizedBox(height: 20),
@@ -348,6 +419,268 @@ class _WomensDashboardState extends ConsumerState<WomensDashboard>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Scheduled Safety Call & Timer Card (High Visibility Dashboard Option) ──
+
+  Widget _buildScheduledTimerCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+        border: Border.all(color: AppColors.neonPurple.withValues(alpha: 0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.neonPurple.withValues(alpha: 0.1),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.neonPurple.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.timer_rounded, color: AppColors.neonPurple, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Scheduled Fake Call & Timer',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.neonPurple.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'VISIBLE TIMER',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.neonPurple,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Schedule a fake call ("Call me in 10 minutes") to safely exit unsafe situations',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Active Armed Timer Banner (If armed)
+          if (_dashTimerArmed) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.neonPurple.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.neonPurple, width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.alarm_on_rounded, color: AppColors.neonPurple, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '⏱️ TIMER ACTIVE: Call ringing in ${_formatDashTime(_dashRemainingSeconds)}',
+                          style: GoogleFonts.spaceGrotesk(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.neonPurple),
+                        ),
+                        Text(
+                          'Simulated call from Mom will ring automatically.',
+                          style: GoogleFonts.inter(fontSize: 10.5, color: AppColors.onSurface),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _cancelDashboardTimer,
+                    child: Text('Cancel', style: GoogleFonts.spaceGrotesk(color: AppColors.safetyPink, fontWeight: FontWeight.w800, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Quick Timer Selector Bar (Directly visible on Dashboard)
+          Text(
+            'Select Timer Delay:',
+            style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildDashTimerChip('⚡ Now', 0),
+                const SizedBox(width: 6),
+                _buildDashTimerChip('⏱️ 10 Sec', 0, customSecs: 10),
+                const SizedBox(width: 6),
+                _buildDashTimerChip('⏱️ 1 Min', 1),
+                const SizedBox(width: 6),
+                _buildDashTimerChip('⏱️ 5 Min', 5),
+                const SizedBox(width: 6),
+                _buildDashTimerChip('⏱️ 10 Min (Default)', 10),
+                const SizedBox(width: 6),
+                _buildDashTimerChip('⏱️ 15 Min', 15),
+                const SizedBox(width: 6),
+                _buildDashTimerChip('⏱️ 30 Min', 30),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Custom Duration Slider right on Dashboard
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  'Custom: ${_dashSelectedTimerMinutes}m',
+                  style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.neonPurple),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 4,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                    ),
+                    child: Slider(
+                      value: _dashSelectedTimerMinutes.toDouble().clamp(1.0, 60.0),
+                      min: 1.0,
+                      max: 60.0,
+                      divisions: 59,
+                      activeColor: AppColors.neonPurple,
+                      inactiveColor: AppColors.outline,
+                      onChanged: (val) {
+                        setState(() {
+                          _dashSelectedTimerMinutes = val.toInt();
+                          _dashCustomSeconds = 0;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Action Buttons: Arm Timer & Caller Configuration
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _dashTimerArmed ? _cancelDashboardTimer : _armDashboardTimer,
+                  icon: Icon(_dashTimerArmed ? Icons.alarm_off_rounded : Icons.timer_rounded, color: Colors.white, size: 18),
+                  label: Text(
+                    _dashTimerArmed
+                        ? 'Cancel Active Timer'
+                        : (_dashSelectedTimerMinutes == 0 && _dashCustomSeconds == 10
+                            ? 'Arm Call (10 Sec)'
+                            : 'Arm Call ($_dashSelectedTimerMinutes Min)'),
+                    style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _dashTimerArmed ? AppColors.safetyPink : AppColors.neonPurple,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 42),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(DesignTokens.radiusMd)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const FakeCallScreen()),
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.neonPurple,
+                  side: const BorderSide(color: AppColors.neonPurple),
+                  minimumSize: const Size(44, 42),
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Icon(Icons.tune_rounded, size: 20),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashTimerChip(String label, int mins, {int customSecs = 0}) {
+    final isSel = _dashSelectedTimerMinutes == mins && _dashCustomSeconds == customSecs;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _dashSelectedTimerMinutes = mins;
+          _dashCustomSeconds = customSecs;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSel ? AppColors.neonPurple.withValues(alpha: 0.18) : AppColors.surfaceElevated,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: isSel ? AppColors.neonPurple : AppColors.outline),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: isSel ? FontWeight.w800 : FontWeight.w500,
+            color: isSel ? AppColors.neonPurple : AppColors.onSurface,
+          ),
+        ),
       ),
     );
   }
