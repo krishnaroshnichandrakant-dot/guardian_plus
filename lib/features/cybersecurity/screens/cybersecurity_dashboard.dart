@@ -23,11 +23,10 @@ class CybersecurityDashboard extends StatefulWidget {
 class _CybersecurityDashboardState extends State<CybersecurityDashboard> with SingleTickerProviderStateMixin {
   final _urlCtrl = TextEditingController();
   final _urlSafetyService = UrlSafetyService(SecureHttpClient());
-  
+
   bool _isScanning = false;
   UrlAnalysisResult? _analysisResult;
   String _scanStatusText = 'Ready';
-  int _scanProgressStep = 0; // 0: Idle, 1: MeitY Check, 2: Betting/Piracy, 3: SSL/HTTP
 
   bool _isDeepAuditing = false;
   double _auditProgress = 0.98; // 98% System Health
@@ -58,7 +57,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
     });
 
     for (int i = 1; i <= 5; i++) {
-      await Future.delayed(const Duration(milliseconds: 350));
+      await Future.delayed(const Duration(milliseconds: 300));
       if (!mounted) return;
       setState(() {
         _auditProgress = 0.12 + (i * 0.17);
@@ -306,20 +305,18 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
       ),
       child: Row(
         children: [
-          // Circular Arc Gauge
           SizedBox(
-            width: 110,
-            height: 110,
+            width: 100,
+            height: 100,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Outer Pulse Ring
                 AnimatedBuilder(
                   animation: _radarPulseController,
                   builder: (context, child) {
                     return Container(
-                      width: 106 + (4 * _radarPulseController.value),
-                      height: 106 + (4 * _radarPulseController.value),
+                      width: 96 + (4 * _radarPulseController.value),
+                      height: 96 + (4 * _radarPulseController.value),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -332,10 +329,9 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                     );
                   },
                 ),
-                // Circular Progress Arc
                 SizedBox(
-                  width: 98,
-                  height: 98,
+                  width: 90,
+                  height: 90,
                   child: CircularProgressIndicator(
                     value: _auditProgress,
                     strokeWidth: 8,
@@ -351,7 +347,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                     Text(
                       '$scoreVal%',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 24,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         color: AppColors.onSurface,
                       ),
@@ -359,7 +355,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                     Text(
                       isSafe ? 'PROTECTED' : 'AUDITING',
                       style: GoogleFonts.spaceGrotesk(
-                        fontSize: 9.5,
+                        fontSize: 9,
                         fontWeight: FontWeight.w800,
                         color: isSafe ? AppColors.emeraldGreen : AppColors.scamAmber,
                         letterSpacing: 0.8,
@@ -370,9 +366,8 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
               ],
             ),
           ),
-          const SizedBox(width: 20),
+          const SizedBox(width: 16),
 
-          // Gauge Context & Actions
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -385,12 +380,14 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                       size: 18,
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      isSafe ? 'System Health Optimal' : 'Running Diagnostic...',
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.onSurface,
+                    Expanded(
+                      child: Text(
+                        isSafe ? 'System Health Optimal' : 'Running Diagnostic...',
+                        style: GoogleFonts.spaceGrotesk(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.onSurface,
+                        ),
                       ),
                     ),
                   ],
@@ -399,14 +396,15 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                 Text(
                   'Wi-Fi encrypted (WPA3), 0 dark web breaches, Indian MeitY blocklists loaded.',
                   style: GoogleFonts.inter(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     color: AppColors.onSurfaceMuted,
                     height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Wrap(
                   spacing: 6,
+                  runSpacing: 4,
                   children: [
                     _buildStatusBadge('MeitY 69A', AppColors.cyberBlue),
                     _buildStatusBadge('Zero Trust', AppColors.neonPurple),
@@ -432,7 +430,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
       child: Text(
         label,
         style: GoogleFonts.spaceGrotesk(
-          fontSize: 10,
+          fontSize: 9.5,
           fontWeight: FontWeight.w700,
           color: color,
         ),
@@ -440,7 +438,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
     );
   }
 
-  // ── Live Telemetry 4-Metric Grid ──────────────────────────────────────────
+  // ── Live Telemetry 2x2 Grid ───────────────────────────────────────────────
 
   Widget _buildLiveTelemetryGrid() {
     return Column(
@@ -505,7 +503,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
 
   Widget _buildQuickUrlScannerCard() {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -531,28 +529,29 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                 child: const Icon(Icons.link_rounded, color: AppColors.cyberBlue, size: 18),
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Instant URL Threat Inspector',
-                    style: GoogleFonts.spaceGrotesk(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.onSurface,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Instant URL Threat Inspector',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.onSurface,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Check links against Indian MeitY/DoT banned list, betting & fraud portals',
-                    style: GoogleFonts.inter(fontSize: 11, color: AppColors.onSurfaceMuted),
-                  ),
-                ],
+                    Text(
+                      'Check links against Indian MeitY/DoT banned list, betting & fraud portals',
+                      style: GoogleFonts.inter(fontSize: 10.5, color: AppColors.onSurfaceMuted),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
           const SizedBox(height: 14),
 
-          // URL Input & Scan Action
           Row(
             children: [
               Expanded(
@@ -583,7 +582,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.cyberBlue,
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: _isScanning
@@ -598,22 +597,13 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                         setState(() {
                           _isScanning = true;
                           _analysisResult = null;
-                          _scanProgressStep = 1;
-                          _scanStatusText = 'Auditing MeitY / DoT Government Blocklists...';
-                        });
-
-                        await Future.delayed(const Duration(milliseconds: 300));
-                        if (!mounted) return;
-                        setState(() {
-                          _scanProgressStep = 2;
-                          _scanStatusText = 'Inspecting Illegal Betting & Piracy Catalogs...';
+                          _scanStatusText = 'Auditing MeitY Blocklists...';
                         });
 
                         final result = await _urlSafetyService.analyzeUrl(text);
 
                         if (!mounted) return;
                         setState(() {
-                          _scanProgressStep = 3;
                           _isScanning = false;
                           _analysisResult = result;
                         });
@@ -621,7 +611,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                 child: _isScanning
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
                     : Text(
-                        'Scan Now',
+                        'Scan',
                         style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w800),
                       ),
               ),
@@ -629,7 +619,6 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
           ),
           const SizedBox(height: 10),
 
-          // Test Chips Row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -648,7 +637,6 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
             ),
           ),
 
-          // Analysis Output Card
           if (_analysisResult != null) ...[
             const SizedBox(height: 16),
             _buildAnalysisResultCard(_analysisResult!),
@@ -853,13 +841,14 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                 ),
               ],
             ),
+            const SizedBox(height: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   f.title,
                   style: GoogleFonts.spaceGrotesk(
-                    fontSize: 14,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: AppColors.onSurface,
                   ),
@@ -870,7 +859,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
-                    fontSize: 11,
+                    fontSize: 10.5,
                     color: AppColors.onSurfaceMuted,
                     height: 1.25,
                   ),
@@ -993,12 +982,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                               setSheetState(() {
                                 _isScanning = true;
                                 _analysisResult = null;
-                                _scanStatusText = 'Auditing MeitY / DoT Government Blocklists...';
-                              });
-
-                              await Future.delayed(const Duration(milliseconds: 300));
-                              setSheetState(() {
-                                _scanStatusText = 'Probing Live HTTP Response & Cyber Fraud Database...';
+                                _scanStatusText = 'Auditing MeitY Blocklists...';
                               });
 
                               final result = await _urlSafetyService.analyzeUrl(text);
@@ -1106,7 +1090,7 @@ class _CybersecurityDashboardState extends State<CybersecurityDashboard> with Si
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  'Risk Score: ${res.riskScore}/100',
+                  'Risk: ${res.riskScore}/100',
                   style: GoogleFonts.spaceGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
