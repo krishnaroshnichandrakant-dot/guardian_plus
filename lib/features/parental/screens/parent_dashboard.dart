@@ -405,11 +405,11 @@ class _ParentDashboardState extends ConsumerState<ParentDashboard> {
         border: Border.all(color: AppColors.outline),
       ),
       child: Column(
-        children: rules.map((r) => SwitchListTile(
+        children: rules.map<Widget>((r) => SwitchListTile(
               title: Text(r['title'] as String, style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.w700, color: AppColors.onSurface)),
               subtitle: Text(r['desc'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurfaceMuted)),
               value: r['enabled'] as bool,
-              activeThumbColor: AppColors.neonPurple,
+              activeColor: AppColors.neonPurple,
               onChanged: (v) => setState(() => r['enabled'] = v),
             )).toList(),
       ),

@@ -91,7 +91,7 @@ class _IdentityDashboardState extends State<IdentityDashboard> {
               style: GoogleFonts.spaceGrotesk(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.onSurface),
             ),
             value: _biometricEnabled,
-            activeThumbColor: AppColors.emeraldGreen,
+            activeColor: AppColors.emeraldGreen,
             onChanged: (v) {
               HapticFeedback.selectionClick();
               setState(() => _biometricEnabled = v);
