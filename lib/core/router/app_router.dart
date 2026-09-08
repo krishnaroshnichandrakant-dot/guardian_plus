@@ -12,6 +12,7 @@ import '../../features/shared/screens/main_shell.dart';
 import '../../features/cybersecurity/screens/qr_scanner_screen.dart';
 import '../../features/cybersecurity/screens/permission_auditor_screen.dart';
 import '../../features/womens_safety/screens/safe_route_screen.dart';
+import '../../features/womens_safety/screens/fake_call_screen.dart';
 import '../../features/family/screens/family_setup_screen.dart';
 
 /// Routes where authentication is NOT required.
@@ -186,6 +187,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const SafeRouteScreen(),
       ),
       GoRoute(
+        path: Routes.fakeCall,
+        builder: (_, __) => const FakeCallScreen(),
+      ),
+      GoRoute(
         path: Routes.qrScanner,
         builder: (_, __) => const QrScannerScreen(),
       ),
@@ -238,6 +243,7 @@ class Routes {
 
   // Detail screens
   static const safeRoute       = '/safety/safe-route';
+  static const fakeCall        = '/safety/fake-call';
   static const qrScanner       = '/cyber/qr-scanner';
   static const permissionAuditor = '/cyber/permission-auditor';
   static const settings        = '/settings';

@@ -103,6 +103,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="guardian.plus" />
             </intent-filter>
+            <!-- Home-Screen / Lock-Screen SOS Widget & Fake Call Deep Links -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="guardianplus" />
+            </intent-filter>
         </activity>
 
         <!-- Foreground Service (persistent monitoring indicator) -->

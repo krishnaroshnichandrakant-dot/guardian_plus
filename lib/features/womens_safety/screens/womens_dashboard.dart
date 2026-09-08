@@ -85,6 +85,8 @@ class _WomensDashboardState extends ConsumerState<WomensDashboard>
                   _buildHeroAtmosphereBanner(),
                   const SizedBox(height: 16),
                   _buildHardwarePanicCard(),
+                  const SizedBox(height: 16),
+                  _buildHomeScreenSosWidgetCard(context),
                   const SizedBox(height: 20),
                   _buildGlowingSosButton(),
                   const SizedBox(height: 24),
@@ -344,6 +346,309 @@ class _WomensDashboardState extends ConsumerState<WomensDashboard>
                 child: const Icon(Icons.tune_rounded, size: 20),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Home-Screen / Lock-Screen SOS Widget & Quick Launcher ─────────────────
+
+  Widget _buildHomeScreenSosWidgetCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(DesignTokens.radiusXl),
+        border: Border.all(color: AppColors.cyberBlue.withValues(alpha: 0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cyberBlue.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Row
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.cyberBlue.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.widgets_rounded, color: AppColors.cyberBlue, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Home / Lock Screen Widget',
+                          style: GoogleFonts.spaceGrotesk(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.emeraldGreen.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '1-TAP LOCK SCREEN',
+                            style: GoogleFonts.spaceGrotesk(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.emeraldGreen,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Trigger Siren, Live GPS & Fake Call directly from Home / Lock Screen widget',
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        color: AppColors.onSurfaceMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Interactive Widget Tile Preview Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceElevated,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.outline),
+            ),
+            child: Row(
+              children: [
+                // SOS Panic Tile Shortcut
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.heavyImpact();
+                      HardwarePanicService.instance.triggerEmergencyPanic(
+                        triggerSource: 'Home/Lock Screen Widget Tile Shortcut',
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.gradientSafety,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.safetyPink.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 24),
+                          const SizedBox(height: 4),
+                          Text(
+                            '1-TAP SOS PANIC',
+                            style: GoogleFonts.spaceGrotesk(fontSize: 10.5, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+
+                // Scheduled Fake Call Tile Shortcut
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const FakeCallScreen()),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.neonPurple,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.neonPurple.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.phone_callback_rounded, color: Colors.white, size: 24),
+                          const SizedBox(height: 4),
+                          Text(
+                            'FAKE CALL (10m)',
+                            style: GoogleFonts.spaceGrotesk(fontSize: 10.5, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Action Buttons: Setup Guide & Test Trigger
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _showWidgetGuideModal(context),
+                  icon: const Icon(Icons.add_to_home_screen_rounded, color: AppColors.cyberBlue, size: 18),
+                  label: Text(
+                    '📲 Add Widget to Lock Screen',
+                    style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.w800),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.cyberBlue,
+                    side: const BorderSide(color: AppColors.cyberBlue),
+                    minimumSize: const Size(double.infinity, 42),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWidgetGuideModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.cyberBlue.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.widgets_rounded, color: AppColors.cyberBlue, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Home & Lock Screen Widget Guide',
+                    style: GoogleFonts.spaceGrotesk(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.onSurface),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              Text(
+                'How to add 1-Tap SOS to Android Home & Lock Screen:',
+                style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.onSurface),
+              ),
+              const SizedBox(height: 8),
+
+              _buildGuideStep('1', 'Go to your Android / iOS Home Screen and long-press on any empty area.'),
+              _buildGuideStep('2', 'Select "Widgets" from the bottom menu.'),
+              _buildGuideStep('3', 'Scroll down to "Guardian Plus" and drag the 1-Tap SOS Panic Tile onto your home screen.'),
+              _buildGuideStep('4', 'For Lock Screen: Open Phone Settings > Wallpaper & Lock Screen > Add Lock Screen Widget > Select Guardian Plus SOS.'),
+              const SizedBox(height: 16),
+
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.emeraldGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.emeraldGreen.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: AppColors.emeraldGreen, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Deep Link Activated: guardianplus://sos_trigger is registered for instant 1-tap activation.',
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.emeraldGreen),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.cyberBlue, foregroundColor: Colors.black),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Got it!'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGuideStep(String num, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: AppColors.cyberBlue.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(num, style: GoogleFonts.spaceGrotesk(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.cyberBlue)),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(text, style: GoogleFonts.inter(fontSize: 12, color: AppColors.onSurface, height: 1.3)),
           ),
         ],
       ),
